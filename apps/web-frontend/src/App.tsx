@@ -1,29 +1,30 @@
 import {
+  AppWindow,
   Boxes,
   Braces,
-  Cable,
+  CheckCircle2,
+  ChevronRight,
+  Command,
   Cpu,
-  ExternalLink,
+  Database,
+  Gauge,
+  Layers3,
   Monitor,
   Play,
   RefreshCcw,
   Search,
   Server,
-  Settings,
+  Settings2,
   ShipWheel,
-  Sparkles
+  Sparkles,
+  SquareTerminal,
+  type LucideIcon
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 
@@ -93,6 +94,8 @@ type SearchResponse = {
   };
 };
 
+type Status = "loading" | "ready" | "running" | "failed";
+
 const emptyOverview: Overview = {
   project: { name: "Keel", version: "0.1.0", license: "Apache-2.0" },
   extensions: [],
@@ -105,17 +108,30 @@ export function App() {
   const [overview, setOverview] = useState<Overview>(emptyOverview);
   const [query, setQuery] = useState("keel");
   const [results, setResults] = useState<SearchItem[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "running" | "failed">("loading");
+  const [status, setStatus] = useState<Status>("loading");
+  const [selection, setSelection] = useState("launcher");
 
   useEffect(() => {
     void loadOverview();
   }, []);
 
-  const metrics = useMemo(() => [
-    { label: "Extensions", value: overview.extensions.length, icon: Boxes },
-    { label: "Protocol methods", value: overview.protocol.methods.length, icon: Braces },
-    { label: "WebView windows", value: overview.webView.windows.length, icon: Monitor },
-    { label: "Rust crates", value: overview.rust.crates.length, icon: Cpu }
+  const visibleResults = results.length > 0
+    ? results
+    : overview.extensions.map((extension) => ({
+      id: extension.id,
+      title: extension.name,
+      subtitle: `${extension.kind} extension / ${extension.capabilities.join(", ")}`,
+      score: extension.kind === "rust" ? 0.8 : 1
+    }));
+
+  const selectedWindow = overview.webView.windows.find((windowConfig) => windowConfig.id === selection)
+    ?? overview.webView.windows[0];
+
+  const sourceItems = useMemo(() => [
+    { id: "launcher", label: "Launcher", value: overview.webView.windows.length, icon: AppWindow },
+    { id: "extensions", label: "Extensions", value: overview.extensions.length, icon: Boxes },
+    { id: "protocol", label: "Protocol", value: overview.protocol.methods.length, icon: Braces },
+    { id: "runtime", label: "Runtime", value: overview.rust.crates.length, icon: Cpu }
   ], [overview]);
 
   async function loadOverview() {
@@ -139,210 +155,210 @@ export function App() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[280px_minmax(0,1fr)] max-lg:grid-cols-1">
-      <aside className="flex flex-col gap-7 bg-foreground p-7 text-white">
-        <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-lg border border-white/15 bg-white/10">
-            <ShipWheel className="h-5 w-5 text-emerald-200" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-normal">Keel</h1>
-            <p className="text-sm text-white/60">{overview.project.version} / {overview.project.license}</p>
-          </div>
-        </div>
-
-        <nav className="grid gap-1 text-sm" aria-label="Primary">
-          {[
-            ["Run", "#run", Play],
-            ["Extensions", "#extensions", Boxes],
-            ["Host", "#host", Monitor],
-            ["Protocol", "#protocol", Braces]
-          ].map(([label, href, Icon]) => (
-            <a className="flex items-center gap-2 rounded-lg px-3 py-2 text-white/80 hover:bg-white/10 hover:text-white" href={href as string} key={label as string}>
-              <Icon className="h-4 w-4" />
-              {label as string}
-            </a>
-          ))}
-        </nav>
-
-        <div className="mt-auto rounded-lg border border-white/10 bg-white/[0.04] p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-            Local foundation
-          </div>
-          <p className="mt-2 text-sm leading-5 text-white/60">React UI, Node backend, WebView config, Rust capability crates.</p>
-        </div>
-      </aside>
-
-      <main className="grid content-start gap-5 p-7 max-sm:p-4">
-        <header className="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase text-primary">Developer console</p>
-            <h2 className="text-3xl font-semibold tracking-normal max-sm:text-2xl">Build and validate a Keel extension host</h2>
-          </div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_20%_92%),_hsl(105_15%_88%)_45%,_hsl(90_13%_82%))] p-5 text-foreground max-sm:p-2">
+      <div className="mx-auto grid h-[calc(100vh-40px)] min-h-[720px] max-w-[1220px] overflow-hidden rounded-xl border border-black/10 bg-card/95 shadow-[0_28px_90px_rgba(25,31,28,0.24)] backdrop-blur max-lg:h-auto max-lg:min-h-screen max-lg:grid-rows-none">
+        <header className="grid h-12 grid-cols-[220px_1fr_220px] items-center border-b bg-muted/70 px-4 max-lg:grid-cols-[1fr_auto]">
           <div className="flex items-center gap-2">
-            <Button aria-label="Refresh data" size="icon" variant="outline" onClick={loadOverview}>
+            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+            <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
+            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+          </div>
+          <div className="flex items-center justify-center gap-2 text-sm font-semibold max-lg:hidden">
+            <ShipWheel className="h-4 w-4 text-primary" />
+            Keel
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button aria-label="Refresh data" size="icon" variant="ghost" onClick={loadOverview}>
               <RefreshCcw className="h-4 w-4" />
-            </Button>
-            <Button asChild variant="outline">
-              <a href="/api/overview" target="_blank" rel="noreferrer">
-                JSON <ExternalLink className="h-4 w-4" />
-              </a>
             </Button>
           </div>
         </header>
 
-        <section className="grid grid-cols-4 gap-4 max-xl:grid-cols-2 max-sm:grid-cols-1" aria-label="Project status">
-          {metrics.map(({ label, value, icon: Icon }) => (
-            <Card key={label}>
-              <CardContent className="flex items-center justify-between p-5">
+        <div className="grid min-h-0 grid-cols-[220px_minmax(0,1fr)_320px] max-xl:grid-cols-[210px_minmax(0,1fr)] max-lg:grid-cols-1">
+          <aside className="grid min-h-0 content-start gap-4 border-r bg-muted/45 p-3 max-lg:border-b max-lg:border-r-0">
+            <div className="px-2 py-1">
+              <div className="text-[11px] font-bold uppercase text-muted-foreground">Sources</div>
+            </div>
+
+            <nav className="grid gap-1" aria-label="Sources">
+              {sourceItems.map((item) => (
+                <button
+                  className={`flex h-9 items-center gap-2 rounded-md px-2 text-left text-sm transition-colors ${
+                    selection === item.id ? "bg-background shadow-sm" : "hover:bg-background/70"
+                  }`}
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelection(item.id)}
+                >
+                  <item.icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">{item.value}</span>
+                </button>
+              ))}
+            </nav>
+
+            <Separator />
+
+            <div className="grid gap-2 px-2 text-sm">
+              <StatusRow icon={CheckCircle2} label="Host" value={statusLabel(status)} />
+              <StatusRow icon={Server} label="Backend" value="Online" />
+              <StatusRow icon={Database} label="Store" value={overview.project.version} />
+            </div>
+          </aside>
+
+          <main className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto]">
+            <section className="border-b p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">{label}</p>
-                  <strong className="mt-1 block text-3xl">{value}</strong>
+                  <h1 className="text-xl font-semibold tracking-normal">Command Center</h1>
+                  <p className="text-sm text-muted-foreground">Run commands, inspect extensions, and verify local services.</p>
                 </div>
-                <div className="grid h-10 w-10 place-items-center rounded-lg bg-accent text-accent-foreground">
-                  <Icon className="h-5 w-5" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
-        <Card id="run">
-          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-            <div>
-              <CardDescription>Run extension</CardDescription>
-              <CardTitle>Search through the demo extension</CardTitle>
-            </div>
-            <Badge variant={status === "failed" ? "warning" : status === "ready" ? "success" : "secondary"}>{status}</Badge>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <form className="flex gap-2 max-sm:flex-col" onSubmit={runSearch}>
-              <div className="relative w-full">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} />
+                <Badge variant={status === "failed" ? "warning" : status === "ready" ? "success" : "secondary"}>
+                  {statusLabel(status)}
+                </Badge>
               </div>
-              <Button type="submit">
-                <Play className="h-4 w-4" />
-                Run
-              </Button>
-            </form>
 
-            <div className="grid gap-2" aria-live="polite">
-              {results.length === 0 ? (
-                <div className="grid min-h-20 place-content-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
-                  Submit a query to call the JavaScript extension through the backend.
+              <form className="flex gap-2" onSubmit={runSearch}>
+                <div className="relative w-full">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label="Command query"
+                    className="h-11 rounded-lg bg-background pl-9 text-[15px] shadow-inner"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
                 </div>
-              ) : results.map((item) => (
-                <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/35 p-3" key={item.id}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p className="text-sm text-muted-foreground">{item.subtitle}</p>
-                  </div>
-                  <Badge variant="outline">{(item.score ?? 0).toFixed(1)}</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <Button className="h-11" type="submit">
+                  <Play className="h-4 w-4" />
+                  Run
+                </Button>
+              </form>
+            </section>
 
-        <div className="grid grid-cols-2 gap-5 max-xl:grid-cols-1">
-          <Card id="extensions">
-            <CardHeader>
-              <CardDescription>Extensions</CardDescription>
-              <CardTitle>Installed examples</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {overview.extensions.map((extension) => (
-                <div className="rounded-lg border bg-muted/35 p-4" key={extension.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <strong>{extension.name}</strong>
-                      <p className="text-sm text-muted-foreground">{extension.id} / {extension.kind}</p>
+            <section className="grid grid-cols-4 border-b bg-muted/20 max-sm:grid-cols-2">
+              <Metric label="Extensions" value={overview.extensions.length} />
+              <Metric label="Methods" value={overview.protocol.methods.length} />
+              <Metric label="Windows" value={overview.webView.windows.length} />
+              <Metric label="Crates" value={overview.rust.crates.length} />
+            </section>
+
+            <section className="min-h-0 overflow-auto p-3">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <div className="text-[11px] font-bold uppercase text-muted-foreground">Results</div>
+                <div className="text-xs text-muted-foreground">{visibleResults.length} items</div>
+              </div>
+
+              <div className="grid gap-1.5">
+                {visibleResults.map((item, index) => (
+                  <button
+                    className="group grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-transparent bg-background px-3 py-2.5 text-left shadow-sm transition-colors hover:border-border hover:bg-muted/40"
+                    key={item.id}
+                    type="button"
+                  >
+                    <div className="grid h-8 w-8 place-items-center rounded-md bg-accent text-accent-foreground">
+                      {index === 0 ? <Command className="h-4 w-4" /> : <SquareTerminal className="h-4 w-4" />}
                     </div>
-                    <Badge variant="outline">{extension.version}</Badge>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {extension.capabilities.map((capability) => <Badge variant="secondary" key={capability}>{capability}</Badge>)}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card id="host">
-            <CardHeader>
-              <CardDescription>WebView host</CardDescription>
-              <CardTitle>Runtime topology</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="keel-topology grid items-center gap-2">
-                <TopologyNode icon={Settings} label="Native host" tone="blue" />
-                <Cable className="mx-auto h-4 w-4 text-muted-foreground max-[720px]:rotate-90" />
-                <TopologyNode icon={Monitor} label="WebView UI" tone="green" />
-                <Cable className="mx-auto h-4 w-4 text-muted-foreground max-[720px]:rotate-90" />
-                <TopologyNode icon={Server} label="Node backend" tone="amber" />
-              </div>
-              <Separator />
-              <div className="grid gap-2">
-                {overview.webView.windows.map((windowConfig) => (
-                  <div className="flex justify-between rounded-lg border bg-muted/35 p-3 text-sm" key={windowConfig.id}>
-                    <span className="font-medium">{windowConfig.title}</span>
-                    <span className="text-muted-foreground">{windowConfig.kind} / {windowConfig.size.width}x{windowConfig.size.height}</span>
-                  </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{item.title}</div>
+                      <div className="truncate text-xs text-muted-foreground">{item.subtitle}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{(item.score ?? 0).toFixed(1)}</Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </div>
+                  </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </section>
 
-          <Card id="protocol">
-            <CardHeader>
-              <CardDescription>Protocol</CardDescription>
-              <CardTitle>Generated RPC surface</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {overview.protocol.methods.map((method) => (
-                <div className="rounded-lg border bg-muted/35 p-4" key={method.name}>
-                  <strong>{method.name}</strong>
-                  <p className="mt-1 text-sm text-muted-foreground">{method.params} to {method.result}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+            <footer className="flex h-9 items-center justify-between border-t bg-muted/35 px-4 text-xs text-muted-foreground">
+              <span>{overview.project.license}</span>
+              <span>Local session</span>
+            </footer>
+          </main>
 
-          <Card>
-            <CardHeader>
-              <CardDescription>Rust core</CardDescription>
-              <CardTitle>Capability base</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              {[...overview.rust.crates, ...overview.rust.capabilities].map((item, index) => (
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/35 p-3" key={item}>
-                  {index < overview.rust.crates.length ? <Cpu className="h-4 w-4 text-primary" /> : <Sparkles className="h-4 w-4 text-amber-600" />}
-                  <span className="font-medium">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <aside className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] border-l bg-background max-xl:col-span-2 max-xl:border-l-0 max-xl:border-t max-lg:col-span-1">
+            <div className="border-b p-4">
+              <div className="mb-1 text-[11px] font-bold uppercase text-muted-foreground">Inspector</div>
+              <h2 className="text-lg font-semibold tracking-normal">{selectedWindow?.title ?? "Keel"}</h2>
+              <p className="text-sm text-muted-foreground">{selectedWindow?.kind ?? "launcher"} window</p>
+            </div>
+
+            <div className="min-h-0 overflow-auto p-4">
+              <InspectorSection title="Window">
+                <InspectorRow icon={Monitor} label="Size" value={selectedWindow ? `${selectedWindow.size.width} x ${selectedWindow.size.height}` : "-"} />
+                <InspectorRow icon={AppWindow} label="Route" value={selectedWindow?.route ?? "/"} />
+                <InspectorRow icon={Gauge} label="Minimum" value={selectedWindow ? `${selectedWindow.size.minWidth ?? 0} x ${selectedWindow.size.minHeight ?? 0}` : "-"} />
+              </InspectorSection>
+
+              <InspectorSection title="Extensions">
+                {overview.extensions.map((extension) => (
+                  <InspectorRow icon={Boxes} key={extension.id} label={extension.name} value={extension.kind} />
+                ))}
+              </InspectorSection>
+
+              <InspectorSection title="Protocol">
+                {overview.protocol.methods.map((method) => (
+                  <InspectorRow icon={Braces} key={method.name} label={method.name} value={method.result} />
+                ))}
+              </InspectorSection>
+
+              <InspectorSection title="Runtime">
+                {[...overview.rust.crates, ...overview.rust.capabilities].map((item, index) => (
+                  <InspectorRow icon={index < overview.rust.crates.length ? Cpu : Sparkles} key={item} label={item} value={index < overview.rust.crates.length ? "crate" : "capability"} />
+                ))}
+              </InspectorSection>
+            </div>
+          </aside>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
 
-function TopologyNode({ icon: Icon, label, tone }: { icon: typeof Monitor; label: string; tone: "blue" | "green" | "amber" }) {
-  const toneClass = {
-    blue: "border-blue-200 bg-blue-50 text-blue-800",
-    green: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    amber: "border-amber-200 bg-amber-50 text-amber-800"
-  }[tone];
-
+function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className={`grid min-h-16 place-items-center gap-1 rounded-lg border p-3 text-center text-sm font-semibold ${toneClass}`}>
-      <Icon className="h-4 w-4" />
-      {label}
+    <div className="border-r px-4 py-3 last:border-r-0">
+      <div className="text-[11px] font-bold uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
     </div>
   );
+}
+
+function StatusRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-primary" />
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+function InspectorSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mb-5">
+      <div className="mb-2 text-[11px] font-bold uppercase text-muted-foreground">{title}</div>
+      <div className="overflow-hidden rounded-lg border bg-muted/20">{children}</div>
+    </section>
+  );
+}
+
+function InspectorRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-2.5 text-sm last:border-b-0">
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <span className="min-w-0 truncate font-medium">{label}</span>
+      <span className="max-w-32 truncate text-xs text-muted-foreground">{value}</span>
+    </div>
+  );
+}
+
+function statusLabel(status: Status) {
+  if (status === "loading") return "Syncing";
+  if (status === "running") return "Running";
+  if (status === "failed") return "Needs attention";
+  return "Ready";
 }
 
 async function getJson<T>(url: string): Promise<T> {
@@ -352,4 +368,3 @@ async function getJson<T>(url: string): Promise<T> {
   }
   return response.json();
 }
-

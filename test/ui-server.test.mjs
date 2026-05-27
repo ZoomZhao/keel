@@ -19,7 +19,7 @@ test("ui dashboard shell and search helper are wired", async () => {
   const html = await readFile("apps/web-frontend/index.html", "utf8");
   const search = await runUiSearch("ui");
 
-  assert.match(html, /Keel Console/);
+  assert.match(html, /<title>Keel<\/title>/);
   assert.equal(search.extension, "hello-world-js");
   assert.equal(search.search.items[0].title, "Hello from Keel: ui");
 });
