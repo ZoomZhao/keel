@@ -1,0 +1,9 @@
+[package]
+name = "keel-capabilities"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+keel-protocol = { path = "../keel-protocol" }
+

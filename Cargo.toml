@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "crates/keel-capabilities",
+  "crates/keel-extension-sdk",
+  "crates/keel-protocol",
+  "extensions/rust/hello-world"
+]
+resolver = "2"

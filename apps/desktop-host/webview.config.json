@@ -1,0 +1,82 @@
+{
+  "name": "Keel Desktop Host",
+  "version": "0.1.0",
+  "frontend": {
+    "devUrl": "http://localhost:5173",
+    "distDir": "apps/web-frontend/dist"
+  },
+  "windows": [
+    {
+      "id": "launcher",
+      "title": "Keel",
+      "kind": "launcher",
+      "route": "/",
+      "size": {
+        "width": 720,
+        "height": 520,
+        "minWidth": 520,
+        "minHeight": 360
+      },
+      "transparent": true,
+      "alwaysOnTop": true,
+      "hideFromTaskSwitcher": true,
+      "closeBehavior": "hide"
+    },
+    {
+      "id": "settings",
+      "title": "Keel Settings",
+      "kind": "settings",
+      "route": "/settings",
+      "size": {
+        "width": 920,
+        "height": 680,
+        "minWidth": 760,
+        "minHeight": 520
+      },
+      "transparent": false,
+      "alwaysOnTop": false,
+      "hideFromTaskSwitcher": false,
+      "closeBehavior": "close"
+    }
+  ],
+  "platform": {
+    "macos": {
+      "webKit": {
+        "viewClass": "WKWebView",
+        "allowsBackForwardNavigationGestures": false,
+        "drawsTransparentBackground": true,
+        "disableWindowOcclusionDetection": true,
+        "prewarmBeforeShow": true,
+        "renderBeyondVisibleBounds": true,
+        "featureFlags": {
+          "requestIdleCallback": true
+        }
+      },
+      "window": {
+        "material": "hudWindow",
+        "level": "floating",
+        "activationPolicy": "accessory",
+        "nativeTooltips": true,
+        "nativePopovers": true
+      }
+    },
+    "windows": {
+      "webView2": {
+        "environment": "shared",
+        "transparentBackground": true,
+        "additionalBrowserArguments": [
+          "--disable-features=msWebOOUI,msPdfOOUI",
+          "--disable-renderer-backgrounding"
+        ]
+      },
+      "window": {
+        "customChrome": true,
+        "acrylicBackdrop": true,
+        "showInTaskbar": false,
+        "nativeTooltips": true,
+        "nativePopovers": true
+      }
+    }
+  }
+}
+

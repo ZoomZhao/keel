@@ -1,0 +1,12 @@
+{
+  "id": "hello-world-js",
+  "name": "Hello World JS",
+  "version": "0.1.0",
+  "entry": {
+    "kind": "node",
+    "command": "node",
+    "args": ["src/index.mjs"]
+  },
+  "capabilities": ["search", "commands"]
+}
+

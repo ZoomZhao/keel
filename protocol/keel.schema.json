@@ -1,0 +1,90 @@
+{
+  "name": "keel",
+  "version": "0.1.0",
+  "records": [
+    {
+      "name": "ExtensionInfo",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "name", "type": "string" },
+        { "name": "version", "type": "string" },
+        { "name": "capabilities", "type": "string[]" }
+      ]
+    },
+    {
+      "name": "InitializeParams",
+      "fields": [
+        { "name": "hostVersion", "type": "string" },
+        { "name": "extension", "type": "ExtensionInfo" }
+      ]
+    },
+    {
+      "name": "InitializeResult",
+      "fields": [
+        { "name": "ready", "type": "boolean" },
+        { "name": "message", "type": "string", "optional": true }
+      ]
+    },
+    {
+      "name": "SearchQueryParams",
+      "fields": [
+        { "name": "query", "type": "string" },
+        { "name": "limit", "type": "number", "optional": true }
+      ]
+    },
+    {
+      "name": "SearchItem",
+      "fields": [
+        { "name": "id", "type": "string" },
+        { "name": "title", "type": "string" },
+        { "name": "subtitle", "type": "string", "optional": true },
+        { "name": "score", "type": "number", "optional": true }
+      ]
+    },
+    {
+      "name": "SearchQueryResult",
+      "fields": [
+        { "name": "items", "type": "SearchItem[]" }
+      ]
+    },
+    {
+      "name": "CommandRunParams",
+      "fields": [
+        { "name": "commandId", "type": "string" },
+        { "name": "arguments", "type": "json", "optional": true }
+      ]
+    },
+    {
+      "name": "CommandRunResult",
+      "fields": [
+        { "name": "ok", "type": "boolean" },
+        { "name": "message", "type": "string", "optional": true }
+      ]
+    },
+    {
+      "name": "RpcError",
+      "fields": [
+        { "name": "code", "type": "string" },
+        { "name": "message", "type": "string" }
+      ]
+    }
+  ],
+  "methods": [
+    {
+      "name": "extension.initialize",
+      "params": "InitializeParams",
+      "result": "InitializeResult"
+    },
+    {
+      "name": "search.query",
+      "params": "SearchQueryParams",
+      "result": "SearchQueryResult"
+    },
+    {
+      "name": "command.run",
+      "params": "CommandRunParams",
+      "result": "CommandRunResult"
+    }
+  ]
+}
+

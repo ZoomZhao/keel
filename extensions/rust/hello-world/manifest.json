@@ -1,0 +1,12 @@
+{
+  "id": "hello-world-rust",
+  "name": "Hello World Rust",
+  "version": "0.1.0",
+  "entry": {
+    "kind": "rust",
+    "command": "cargo",
+    "args": ["run", "--quiet"]
+  },
+  "capabilities": ["search", "commands"]
+}
+

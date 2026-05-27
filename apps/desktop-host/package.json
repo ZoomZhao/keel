@@ -1,0 +1,7 @@
+{
+  "name": "@keel/desktop-host",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true
+}
+
