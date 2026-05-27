@@ -1,7 +1,7 @@
 # WebView Hosting
 
-Keel does not ship native macOS or Windows shells yet, but it does define the
-configuration contract those shells should consume.
+Keel ships first-pass native macOS and Windows shells plus the configuration
+contract they consume.
 
 `apps/desktop-host/webview.config.json` contains:
 
@@ -14,9 +14,16 @@ configuration contract those shells should consume.
 
 ## macOS shell expectations
 
-A future AppKit shell should:
+The AppKit shell:
 
 - Create WKWebView-backed windows from the `windows` array.
+- Register `window.webkit.messageHandlers.keelHost` for browser-to-native
+  messages.
+- Handle host readiness, window show/hide/focus, toast logging, and clipboard
+  text writes.
+
+The next AppKit layer should:
+
 - Keep launcher windows warm before showing them when `prewarmBeforeShow` is
   enabled.
 - Disable window occlusion detection when configured.
@@ -25,10 +32,16 @@ A future AppKit shell should:
 
 ## Windows shell expectations
 
-A future WPF or WinUI shell should:
+The WPF shell:
 
 - Create WebView2 environments from the config.
 - Apply additional browser arguments before WebView initialization.
+- Register `WebMessageReceived` for browser-to-native messages.
+- Handle host readiness, window show/hide/focus, toast logging, and clipboard
+  text writes.
+
+The next WPF or WinUI layer should:
+
 - Coordinate transparent/acrylic backgrounds between native chrome and WebView2.
 - Avoid renderer background throttling for warm launcher surfaces.
 - Render native popovers and tooltips outside WebView bounds.

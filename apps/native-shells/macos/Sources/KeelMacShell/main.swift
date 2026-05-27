@@ -54,6 +54,7 @@ struct MacWindowConfig: Decodable {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
+    private let bridge = HostBridge()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let config = loadHostConfig()
@@ -61,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let webView = makeWebView(config: config)
         let window = makeWindow(config: config, launcher: launcher, webView: webView)
         self.window = window
+        bridge.window = window
 
         if config.platform?.macos?.window?.activationPolicy == "accessory" {
             NSApp.setActivationPolicy(.accessory)
@@ -80,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let webConfig = WKWebViewConfiguration()
         webConfig.defaultWebpagePreferences = preferences
+        webConfig.userContentController.add(bridge, name: "keelHost")
 
         let webView = WKWebView(frame: .zero, configuration: webConfig)
         webView.allowsBackForwardNavigationGestures =
@@ -126,6 +129,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         return window
+    }
+}
+
+final class HostBridge: NSObject, WKScriptMessageHandler {
+    weak var window: NSWindow?
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any],
+              let method = body["method"] as? String else {
+            return
+        }
+
+        let params = body["params"] as? [String: Any] ?? [:]
+        DispatchQueue.main.async {
+            self.handle(method: method, params: params)
+        }
+    }
+
+    private func handle(method: String, params: [String: Any]) {
+        switch method {
+        case "host.ready":
+            window?.alphaValue = 1
+        case "window.show":
+            window?.makeKeyAndOrderFront(nil)
+        case "window.hide":
+            window?.orderOut(nil)
+        case "window.focus":
+            window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        case "toast.show":
+            let title = params["title"] as? String ?? "Keel"
+            let message = params["message"] as? String ?? ""
+            NSLog("[Keel toast] %@ %@", title, message)
+        case "clipboard.writeText":
+            if let text = params["text"] as? String {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+            }
+        case "clipboard.readText", "globalHotkey.register":
+            NSLog("[Keel bridge] Native method registered for future implementation: %@", method)
+        default:
+            NSLog("[Keel bridge] Unsupported method: %@", method)
+        }
     }
 }
 

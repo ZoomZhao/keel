@@ -50,17 +50,31 @@ Errors:
 Use `packages/js-extension-sdk`:
 
 ```js
-import { serve } from "@keel/js-extension-sdk";
+import { createAction, createActionPanel, serve, showToast } from "@keel/js-extension-sdk";
 
 serve({
   "extension.initialize": async () => ({ ready: true }),
-  "search.query": async ({ query }) => ({ items: [{ id: "1", title: query }] }),
-  "command.run": async () => ({ ok: true })
+  "search.query": async ({ query }) => ({
+    items: [{
+      id: "1",
+      title: query,
+      actions: createActionPanel([
+        createAction({ id: "copy", title: "Copy Result" })
+      ]).actions
+    }]
+  }),
+  "command.run": async () => ({
+    ok: true,
+    toast: showToast({ title: "Command complete" })
+  })
 });
 ```
 
 The repository example imports the SDK by relative path so it works before
 publishing packages.
+
+The SDK also exposes `createMemoryStorage(initial)` as an async local KV store
+for extension tests and simple stateful commands.
 
 ## Rust extensions
 
@@ -99,4 +113,3 @@ permission prompts and scoped grants for:
 - Clipboard access.
 - Native OS actions.
 - Long-running background services.
-

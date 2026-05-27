@@ -127,6 +127,7 @@ mod tests {
                     title: params.query,
                     subtitle: None,
                     score: Some(1.0),
+                    actions: None,
                 }],
             })
         }
@@ -135,6 +136,8 @@ mod tests {
             Ok(CommandRunResult {
                 ok: true,
                 message: Some(params.command_id),
+                toast: None,
+                actions: None,
             })
         }
     }

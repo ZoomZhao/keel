@@ -24,6 +24,7 @@ const requiredFiles = [
   "apps/native-shells/windows/MainWindow.xaml.cs",
   "protocol/keel.schema.json",
   "packages/protocol/src/generated.ts",
+  "packages/native-bridge/src/index.mjs",
   "packages/host-config/src/index.mjs",
   "apps/desktop-host/webview.config.json",
   "crates/keel-capabilities/src/lib.rs",

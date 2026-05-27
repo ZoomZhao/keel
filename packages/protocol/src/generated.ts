@@ -24,11 +24,29 @@ export interface SearchQueryParams {
   limit?: number;
 }
 
+export interface Action {
+  id: string;
+  title: string;
+  style?: string;
+  shortcut?: string;
+}
+
+export interface ActionPanel {
+  actions: Action[];
+}
+
+export interface Toast {
+  title: string;
+  message?: string;
+  style?: string;
+}
+
 export interface SearchItem {
   id: string;
   title: string;
   subtitle?: string;
   score?: number;
+  actions?: Action[];
 }
 
 export interface SearchQueryResult {
@@ -43,6 +61,18 @@ export interface CommandRunParams {
 export interface CommandRunResult {
   ok: boolean;
   message?: string;
+  toast?: Toast;
+  actions?: Action[];
+}
+
+export interface NativeBridgeParams {
+  method: string;
+  params?: unknown;
+}
+
+export interface NativeBridgeResult {
+  ok: boolean;
+  value?: unknown;
 }
 
 export interface RpcError {
@@ -54,6 +84,7 @@ export interface MethodMap {
   "extension.initialize": { params: InitializeParams; result: InitializeResult };
   "search.query": { params: SearchQueryParams; result: SearchQueryResult };
   "command.run": { params: CommandRunParams; result: CommandRunResult };
+  "host.invoke": { params: NativeBridgeParams; result: NativeBridgeResult };
 }
 
 export type MethodName = keyof MethodMap;
@@ -72,5 +103,6 @@ export const methods = {
   EXTENSION_INITIALIZE: "extension.initialize",
   SEARCH_QUERY: "search.query",
   COMMAND_RUN: "command.run",
+  HOST_INVOKE: "host.invoke",
 } as const;
 

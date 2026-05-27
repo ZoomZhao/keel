@@ -1,5 +1,42 @@
 import { createInterface } from "node:readline";
 
+export function createAction({ id, title, style = "default", shortcut } = {}) {
+  if (!id || !title) throw new Error("Action requires id and title");
+  return removeUndefined({ id, title, style, shortcut });
+}
+
+export function createActionPanel(actions = []) {
+  if (!Array.isArray(actions)) throw new Error("ActionPanel actions must be an array");
+  return { actions };
+}
+
+export function showToast({ title, message, style = "success" } = {}) {
+  if (!title) throw new Error("Toast requires title");
+  return removeUndefined({ title, message, style });
+}
+
+export function createMemoryStorage(initial = {}) {
+  const data = new Map(Object.entries(initial));
+
+  return {
+    async get(key) {
+      return data.get(key);
+    },
+    async set(key, value) {
+      data.set(key, value);
+    },
+    async remove(key) {
+      data.delete(key);
+    },
+    async clear() {
+      data.clear();
+    },
+    async entries() {
+      return Object.fromEntries(data.entries());
+    }
+  };
+}
+
 export function serve(handlers) {
   const input = createInterface({ input: process.stdin });
 
@@ -31,3 +68,8 @@ function write(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
+function removeUndefined(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined)
+  );
+}

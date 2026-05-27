@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { runBackend } from "../node-backend/src/main.mjs";
+import { getSharedBackendService } from "../node-backend/src/main.mjs";
 import { loadWebViewConfig } from "../../packages/host-config/src/index.mjs";
 import { discoverExtensions } from "../../packages/runtime/src/index.mjs";
 
@@ -67,6 +67,7 @@ export async function createUiServer({ useVite = false } = {}) {
 }
 
 export async function getOverview() {
+  const backend = getSharedBackendService();
   const [webViewConfig, protocol, jsExtensions, rustExtensions] = await Promise.all([
     loadWebViewConfig(),
     readProtocolSchema(),
@@ -96,6 +97,7 @@ export async function getOverview() {
       macos: webViewConfig.platform?.macos,
       platformWindows: webViewConfig.platform?.windows
     },
+    backend: await backend.health(),
     protocol: {
       records: protocol.records.map((record) => record.name),
       methods: protocol.methods
@@ -116,10 +118,12 @@ export async function getOverview() {
 }
 
 export async function runUiSearch(query = "keel") {
-  return runBackend({
-    extensionDir: "extensions/js/hello-world",
-    query
-  });
+  const backend = getSharedBackendService();
+  const search = await backend.search(query, { limit: 5 });
+  return {
+    extension: search.extensions[0]?.id ?? "none",
+    search
+  };
 }
 
 async function readProtocolSchema() {

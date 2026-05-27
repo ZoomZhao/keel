@@ -1,6 +1,7 @@
 import { ExtensionProcess, validateManifest } from "../../../packages/runtime/src/index.mjs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+export { KeelBackendService, getSharedBackendService, resetSharedBackendService } from "./service.mjs";
 
 async function loadManifest(extensionDir) {
   const dir = resolve(extensionDir);
@@ -30,4 +31,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const result = await runBackend({ extensionDir });
   console.log(JSON.stringify(result, null, 2));
 }
-

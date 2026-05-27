@@ -34,6 +34,30 @@ pub struct SearchQueryParams {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Action {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shortcut: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ActionPanel {
+    pub actions: Vec<Action>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Toast {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SearchItem {
     pub id: String,
     pub title: String,
@@ -41,6 +65,8 @@ pub struct SearchItem {
     pub subtitle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actions: Option<Vec<Action>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -61,6 +87,24 @@ pub struct CommandRunResult {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toast: Option<Toast>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actions: Option<Vec<Action>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct NativeBridgeParams {
+    pub method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub params: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct NativeBridgeResult {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -78,9 +122,12 @@ pub enum RpcRequestParams {
     SearchQuery(SearchQueryParams),
     #[serde(rename = "command.run")]
     CommandRun(CommandRunParams),
+    #[serde(rename = "host.invoke")]
+    HostInvoke(NativeBridgeParams),
 }
 
 pub const EXTENSION_INITIALIZE: &str = "extension.initialize";
 pub const SEARCH_QUERY: &str = "search.query";
 pub const COMMAND_RUN: &str = "command.run";
+pub const HOST_INVOKE: &str = "host.invoke";
 

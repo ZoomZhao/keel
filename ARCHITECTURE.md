@@ -42,6 +42,12 @@ The Node backend is long-lived. It owns extension discovery, process lifecycle,
 request routing, and product services. Extensions are separate processes so a
 slow or crashing extension cannot take down the backend.
 
+`KeelBackendService` is the first concrete service layer. It discovers
+manifests from configured roots, warms extension processes on demand, routes
+requests by capability, exposes health metadata, and shuts down children when
+the host exits. The UI server uses this service instead of the one-shot demo
+path.
+
 ## Protocol-first contracts
 
 `protocol/keel.schema.json` declares records and RPC methods. Generated clients
@@ -60,8 +66,9 @@ Additional targets can be added without changing extension manifests.
 2. Validate the manifest shape and declared capabilities.
 3. Start the entry command with the manifest directory as cwd.
 4. Send `extension.initialize`.
-5. Route capability calls such as `search.query` and `command.run`.
-6. Stop the child process on shutdown or after health check failure.
+5. Keep initialized processes warm while the service is alive.
+6. Route capability calls such as `search.query` and `command.run`.
+7. Stop the child process on shutdown or after health check failure.
 
 ## Rust extension strategy
 
@@ -99,6 +106,14 @@ window materials, and WebView configuration.
 
 The WebView should own UI composition. It should not emulate OS behavior where
 the platform already has a stronger primitive.
+
+`packages/native-bridge` defines the current WebView-to-native envelope:
+`{ id, method, params }`. The macOS shell registers
+`window.webkit.messageHandlers.keelHost`, and the Windows shell listens for
+WebView2 messages. Implemented host-side methods include readiness,
+show/hide/focus, toast logging, and clipboard text writes; global hotkey
+registration and clipboard reads are reserved in the bridge contract for the
+next native integration pass.
 
 ## Performance rules
 

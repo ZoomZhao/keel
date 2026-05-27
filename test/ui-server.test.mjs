@@ -1,8 +1,13 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import { getOverview, runUiSearch } from "../apps/web-frontend/server.mjs";
+import { resetSharedBackendService } from "../apps/node-backend/src/main.mjs";
+
+after(() => {
+  resetSharedBackendService();
+});
 
 test("ui overview includes extension, protocol, host, and Rust data", async () => {
   const overview = await getOverview();
@@ -11,6 +16,8 @@ test("ui overview includes extension, protocol, host, and Rust data", async () =
   assert.ok(overview.extensions.some((extension) => extension.id === "hello-world-js"));
   assert.ok(overview.extensions.some((extension) => extension.id === "hello-world-rust"));
   assert.equal(overview.webView.windows.length, 2);
+  assert.equal(overview.backend.service, "KeelBackendService");
+  assert.ok(overview.backend.features.includes("Capability-based routing"));
   assert.ok(overview.protocol.methods.some((method) => method.name === "search.query"));
   assert.ok(overview.rust.crates.includes("keel-capabilities"));
 });
@@ -27,6 +34,7 @@ test("ui dashboard shell and search helper are wired", async () => {
   assert.match(css, /--keel-window-control-inset-left/);
   assert.equal(search.extension, "hello-world-js");
   assert.equal(search.search.items[0].title, "Hello from Keel: ui");
+  assert.equal(search.search.items[0].extensionId, "hello-world-js");
 });
 
 test("ui search helper falls back to the default query", async () => {

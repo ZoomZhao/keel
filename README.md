@@ -41,6 +41,7 @@ extensions/
 packages/
   host-config/         WebView host config loader and validator.
   js-extension-sdk/    JavaScript helper SDK for extension authors.
+  native-bridge/       Browser-to-native message envelope helpers.
   protocol/            Generated TypeScript protocol types.
   runtime/             Extension discovery, RPC, and process management.
 protocol/
@@ -113,6 +114,14 @@ to see the foundation working:
 - Inspect generated protocol methods.
 - Inspect Rust capability crates and primitives.
 
+## Backend service
+
+`apps/node-backend/src/service.mjs` provides the long-lived service foundation:
+extension discovery, capability-based routing, process warmup, command routing,
+and health checks. The UI server uses this service for `/api/search`, so an
+extension process stays warm across multiple queries instead of being started
+for a single request and immediately stopped.
+
 ## Extension model
 
 Every extension has a `manifest.json`:
@@ -135,6 +144,18 @@ The backend starts the extension process, sends JSON Lines requests on stdin,
 and reads JSON Lines responses from stdout. The same transport works for Node,
 Rust, Go, Python, or any language that can read and write lines.
 
+`packages/js-extension-sdk` includes small authoring helpers for Action Panel
+descriptors, Toast descriptors, and async local KV storage.
+
+## Native bridge
+
+`packages/native-bridge` defines the browser-to-host message envelope used by
+the WebView UI. The macOS shell registers a `keelHost` WKScriptMessageHandler
+and the Windows shell registers WebView2 `WebMessageReceived`. Current bridge
+methods cover host readiness, window show/hide/focus, toast requests,
+clipboard text writes, and the placeholder contract for global hotkey
+registration.
+
 ## Protocol workflow
 
 Edit `protocol/keel.schema.json`, then run:
@@ -154,9 +175,8 @@ CI checks that generated files are current.
 
 This is a foundation, not a full desktop app. The next useful layers are:
 
-- A WebView frontend with multiple window entry points.
-- A macOS shell using WKWebView and platform message handlers.
-- A Windows shell using WebView2 and platform message handlers.
+- Real global hotkey and menubar/tray implementations in the native shells.
+- Native tooltip/popover rendering outside WebView bounds.
 - Deeper Rust capabilities for file indexing, embeddings, and sync.
 - A permission system for extension access to files, network, and secrets.
 

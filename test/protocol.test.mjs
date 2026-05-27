@@ -19,7 +19,7 @@ test("schema declares core extension methods", async () => {
   assert.deepEqual(methods, [
     "extension.initialize",
     "search.query",
-    "command.run"
+    "command.run",
+    "host.invoke"
   ]);
 });
-

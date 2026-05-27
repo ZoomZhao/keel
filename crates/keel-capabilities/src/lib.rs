@@ -91,6 +91,7 @@ impl InMemorySearchIndex {
                             title: document.title.clone(),
                             subtitle: document.subtitle.clone(),
                             score: Some(score),
+                            actions: None,
                         },
                     )
                 })

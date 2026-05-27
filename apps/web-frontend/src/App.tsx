@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { createBrowserNativeBridge } from "../../../packages/native-bridge/src/index.mjs";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,13 @@ type Overview = {
     crates: string[];
     capabilities: string[];
   };
+  backend?: {
+    extensions: Array<{
+      id: string;
+      warmed: boolean;
+      running: boolean;
+    }>;
+  };
 };
 
 type SearchItem = {
@@ -111,6 +119,7 @@ export function App() {
 
   useEffect(() => {
     void loadOverview();
+    void createBrowserNativeBridge().ready({ surface: "launcher" });
   }, []);
 
   const visibleResults = results.length > 0
@@ -212,7 +221,7 @@ export function App() {
 
             <div className="grid gap-2 px-2 text-sm">
               <StatusRow icon={CheckCircle2} label="Host" value={statusLabel(status)} />
-              <StatusRow icon={Server} label="Backend" value="Online" />
+              <StatusRow icon={Server} label="Backend" value={overview.backend?.extensions.some((extension) => extension.running) ? "Warm" : "Ready"} />
               <StatusRow icon={Database} label="Store" value={overview.project.version} />
             </div>
           </aside>

@@ -22,12 +22,16 @@ impl ExtensionHandlers for HelloWorld {
                 title: format!("Hello from Rust: {}", params.query),
                 subtitle: Some("Rust extension response".to_string()),
                 score: Some(1.0),
+                actions: None,
             },
             SearchItem {
                 id: "portable-core".to_string(),
                 title: "Move heavy capabilities into Rust".to_string(),
-                subtitle: Some("Indexing, parsing, search, sync, and local AI fit here".to_string()),
+                subtitle: Some(
+                    "Indexing, parsing, search, sync, and local AI fit here".to_string(),
+                ),
                 score: Some(0.8),
+                actions: None,
             },
         ];
         items.truncate(limit);
@@ -38,6 +42,8 @@ impl ExtensionHandlers for HelloWorld {
         Ok(CommandRunResult {
             ok: true,
             message: Some(format!("Command {} completed", params.command_id)),
+            toast: None,
+            actions: None,
         })
     }
 }

@@ -28,8 +28,72 @@ public partial class MainWindow : Window
         ShowInTaskbar = !(launcher.HideFromTaskSwitcher ?? false);
         Topmost = launcher.AlwaysOnTop ?? false;
 
-        await WebView.EnsureCoreWebView2Async();
+        var webView2Args = config.Platform?.Windows?.WebView2?.AdditionalBrowserArguments;
+        var environmentOptions = new CoreWebView2EnvironmentOptions(
+            webView2Args is { Length: > 0 } ? string.Join(" ", webView2Args) : null
+        );
+        var environment = await CoreWebView2Environment.CreateAsync(null, null, environmentOptions);
+
+        await WebView.EnsureCoreWebView2Async(environment);
+        WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         WebView.CoreWebView2.Navigate(config.Frontend.DevUrl + (launcher.Route ?? "/"));
+    }
+
+    private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        using var message = JsonDocument.Parse(e.WebMessageAsJson);
+        if (!message.RootElement.TryGetProperty("method", out var methodElement)) return;
+
+        var method = methodElement.GetString();
+        var parameters = message.RootElement.TryGetProperty("params", out var paramsElement)
+            ? paramsElement
+            : default;
+
+        HandleHostMessage(method, parameters);
+    }
+
+    private void HandleHostMessage(string? method, JsonElement parameters)
+    {
+        switch (method)
+        {
+            case "host.ready":
+                Show();
+                break;
+            case "window.show":
+                Show();
+                Activate();
+                break;
+            case "window.hide":
+                Hide();
+                break;
+            case "window.focus":
+                Activate();
+                break;
+            case "toast.show":
+                var title = GetString(parameters, "title") ?? "Keel";
+                var message = GetString(parameters, "message") ?? string.Empty;
+                Console.WriteLine($"[Keel toast] {title} {message}");
+                break;
+            case "clipboard.writeText":
+                var text = GetString(parameters, "text");
+                if (text is not null) Clipboard.SetText(text);
+                break;
+            case "clipboard.readText":
+            case "globalHotkey.register":
+                Console.WriteLine($"[Keel bridge] Native method registered for future implementation: {method}");
+                break;
+            default:
+                Console.WriteLine($"[Keel bridge] Unsupported method: {method}");
+                break;
+        }
+    }
+
+    private static string? GetString(JsonElement element, string propertyName)
+    {
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(propertyName, out var property)
+            ? property.GetString()
+            : null;
     }
 
     private static HostConfig LoadHostConfig()
@@ -79,4 +143,3 @@ public sealed record WindowsPlatformConfig(WebView2Config? WebView2, WindowPlatf
 public sealed record WebView2Config(bool? TransparentBackground, string[]? AdditionalBrowserArguments);
 
 public sealed record WindowPlatformConfig(bool? CustomChrome, bool? AcrylicBackdrop, bool? ShowInTaskbar);
-
