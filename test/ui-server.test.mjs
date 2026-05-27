@@ -23,3 +23,10 @@ test("ui dashboard shell and search helper are wired", async () => {
   assert.equal(search.extension, "hello-world-js");
   assert.equal(search.search.items[0].title, "Hello from Keel: ui");
 });
+
+test("ui search helper falls back to the default query", async () => {
+  const search = await runUiSearch();
+
+  assert.equal(search.extension, "hello-world-js");
+  assert.equal(search.search.items[0].title, "Hello from Keel: keel");
+});

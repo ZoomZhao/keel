@@ -131,6 +131,28 @@ mod tests {
     }
 
     #[test]
+    fn registry_replaces_existing_descriptor() {
+        let mut registry = CapabilityRegistry::new();
+        registry.register(CapabilityDescriptor {
+            id: "local-search".to_string(),
+            name: "Local Search".to_string(),
+            version: "0.1.0".to_string(),
+            capabilities: vec!["search".to_string()],
+        });
+
+        let previous = registry.register(CapabilityDescriptor {
+            id: "local-search".to_string(),
+            name: "Local Search v2".to_string(),
+            version: "0.2.0".to_string(),
+            capabilities: vec!["search".to_string(), "index".to_string()],
+        });
+
+        assert_eq!(previous.unwrap().version, "0.1.0");
+        assert_eq!(registry.get("local-search").unwrap().name, "Local Search v2");
+        assert_eq!(registry.by_capability("index").len(), 1);
+    }
+
+    #[test]
     fn search_index_ranks_title_matches() {
         let mut index = InMemorySearchIndex::new();
         index.add(SearchDocument {
@@ -151,5 +173,34 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "1");
     }
-}
 
+    #[test]
+    fn search_index_handles_empty_queries_and_limits() {
+        let mut index = InMemorySearchIndex::new();
+        index.add(SearchDocument {
+            id: "1".to_string(),
+            title: "Keel".to_string(),
+            subtitle: None,
+            body: "Runtime".to_string(),
+        });
+
+        assert!(index.query("", 5).is_empty());
+        assert!(index.query("   ", 5).is_empty());
+        assert!(index.query("keel", 0).is_empty());
+    }
+
+    #[test]
+    fn search_index_applies_result_limit() {
+        let mut index = InMemorySearchIndex::new();
+        for id in ["1", "2", "3"] {
+            index.add(SearchDocument {
+                id: id.to_string(),
+                title: format!("Keel {id}"),
+                subtitle: None,
+                body: "Runtime".to_string(),
+            });
+        }
+
+        assert_eq!(index.query("keel", 2).len(), 2);
+    }
+}

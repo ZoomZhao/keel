@@ -25,6 +25,42 @@ test("rejects unsupported extension kinds", () => {
   }, "/tmp/bad"), /Unsupported extension kind/);
 });
 
+test("rejects malformed extension entry fields", () => {
+  assert.throws(() => validateManifest({
+    id: "bad",
+    name: "Bad",
+    version: "0.1.0",
+    entry: { kind: "process" },
+    capabilities: []
+  }, "/tmp/bad"), /entry\.command/);
+
+  assert.throws(() => validateManifest({
+    id: "bad",
+    name: "Bad",
+    version: "0.1.0",
+    entry: { kind: "process", command: "node", args: "bad" },
+    capabilities: []
+  }, "/tmp/bad"), /entry\.args/);
+});
+
+test("rejects malformed extension capabilities", () => {
+  assert.throws(() => validateManifest({
+    id: "bad",
+    name: "Bad",
+    version: "0.1.0",
+    entry: { kind: "process", command: "node" },
+    capabilities: "search"
+  }, "/tmp/bad"), /capabilities must be an array/);
+
+  assert.throws(() => validateManifest({
+    id: "bad",
+    name: "Bad",
+    version: "0.1.0",
+    entry: { kind: "process", command: "node" },
+    capabilities: [""]
+  }, "/tmp/bad"), /capabilities must contain/);
+});
+
 test("discovers JavaScript example extension", async () => {
   const manifests = await discoverExtensions(["extensions/js"]);
   const ids = manifests.map((manifest) => manifest.id);
@@ -48,3 +84,35 @@ test("calls JavaScript extension over JSON Lines RPC", async () => {
   }
 });
 
+test("rejects RPC error responses from an extension", async () => {
+  const [manifest] = await discoverExtensions(["extensions/js"]);
+  const extension = new ExtensionProcess(manifest);
+
+  try {
+    await assert.rejects(
+      extension.request("missing.method", {}),
+      /method_not_found: Unsupported method/
+    );
+  } finally {
+    extension.stop();
+  }
+});
+
+test("rejects pending RPC calls when an extension exits early", async () => {
+  const extension = new ExtensionProcess(validateManifest({
+    id: "exit-early",
+    name: "Exit Early",
+    version: "0.1.0",
+    entry: {
+      kind: "process",
+      command: process.execPath,
+      args: ["-e", "process.exit(0)"]
+    },
+    capabilities: []
+  }, process.cwd()));
+
+  await assert.rejects(
+    extension.request("search.query", { query: "keel" }),
+    /Extension exited before response/
+  );
+});

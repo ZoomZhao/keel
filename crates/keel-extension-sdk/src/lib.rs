@@ -105,3 +105,97 @@ where
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use keel_protocol::{ExtensionInfo, SearchItem};
+
+    struct TestHandlers;
+
+    impl ExtensionHandlers for TestHandlers {
+        fn initialize(&self, params: InitializeParams) -> RpcResult<InitializeResult> {
+            Ok(InitializeResult {
+                ready: true,
+                message: Some(format!("{} ready", params.extension.id)),
+            })
+        }
+
+        fn search_query(&self, params: SearchQueryParams) -> RpcResult<SearchQueryResult> {
+            Ok(SearchQueryResult {
+                items: vec![SearchItem {
+                    id: "result".to_string(),
+                    title: params.query,
+                    subtitle: None,
+                    score: Some(1.0),
+                }],
+            })
+        }
+
+        fn command_run(&self, params: CommandRunParams) -> RpcResult<CommandRunResult> {
+            Ok(CommandRunResult {
+                ok: true,
+                message: Some(params.command_id),
+            })
+        }
+    }
+
+    #[test]
+    fn handle_line_returns_method_results() {
+        let response = handle_line(
+            &TestHandlers,
+            r#"{"id":"1","method":"extension.initialize","params":{"hostVersion":"0.1.0","extension":{"id":"ext","name":"Ext","version":"0.1.0","capabilities":[]}}}"#,
+        );
+
+        assert_eq!(response["id"], "1");
+        assert_eq!(response["result"]["ready"], true);
+        assert_eq!(response["result"]["message"], "ext ready");
+    }
+
+    #[test]
+    fn handle_line_reports_invalid_json() {
+        let response = handle_line(&TestHandlers, "{bad");
+
+        assert_eq!(response["id"], "unknown");
+        assert_eq!(response["error"]["code"], "invalid_json");
+    }
+
+    #[test]
+    fn handle_line_reports_unknown_methods() {
+        let response = handle_line(
+            &TestHandlers,
+            r#"{"id":"1","method":"missing.method","params":{}}"#,
+        );
+
+        assert_eq!(response["id"], "1");
+        assert_eq!(response["error"]["code"], "method_not_found");
+    }
+
+    #[test]
+    fn handle_line_reports_invalid_params() {
+        let response = handle_line(
+            &TestHandlers,
+            r#"{"id":"1","method":"search.query","params":{"limit":5}}"#,
+        );
+
+        assert_eq!(response["id"], "1");
+        assert_eq!(response["error"]["code"], "invalid_params");
+    }
+
+    #[test]
+    fn generated_protocol_round_trips_camel_case_fields() {
+        let params = InitializeParams {
+            host_version: "0.1.0".to_string(),
+            extension: ExtensionInfo {
+                id: "ext".to_string(),
+                name: "Ext".to_string(),
+                version: "0.1.0".to_string(),
+                capabilities: vec![],
+            },
+        };
+
+        let json = serde_json::to_value(params).unwrap();
+
+        assert_eq!(json["hostVersion"], "0.1.0");
+        assert!(json.get("host_version").is_none());
+    }
+}

@@ -29,8 +29,30 @@ export function validateManifest(manifest, dir) {
   for (const key of ["id", "name", "version", "entry", "capabilities"]) {
     if (!(key in manifest)) throw new Error(`Extension manifest is missing ${key}`);
   }
+  for (const key of ["id", "name", "version"]) {
+    if (typeof manifest[key] !== "string" || manifest[key].length === 0) {
+      throw new Error(`Extension manifest ${key} must be a non-empty string`);
+    }
+  }
+  if (!manifest.entry || typeof manifest.entry !== "object" || Array.isArray(manifest.entry)) {
+    throw new Error("Extension manifest entry must be an object");
+  }
   if (!["node", "rust", "process"].includes(manifest.entry.kind)) {
     throw new Error(`Unsupported extension kind: ${manifest.entry.kind}`);
+  }
+  if (typeof manifest.entry.command !== "string" || manifest.entry.command.length === 0) {
+    throw new Error("Extension manifest entry.command must be a non-empty string");
+  }
+  if (manifest.entry.args !== undefined && !Array.isArray(manifest.entry.args)) {
+    throw new Error("Extension manifest entry.args must be an array");
+  }
+  if (!Array.isArray(manifest.capabilities)) {
+    throw new Error("Extension manifest capabilities must be an array");
+  }
+  for (const capability of manifest.capabilities) {
+    if (typeof capability !== "string" || capability.length === 0) {
+      throw new Error("Extension manifest capabilities must contain non-empty strings");
+    }
   }
   return { ...manifest, dir };
 }
@@ -121,4 +143,3 @@ export class ExtensionProcess {
     this.child = null;
   }
 }
-

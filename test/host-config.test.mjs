@@ -38,3 +38,38 @@ test("rejects unknown WebView window kinds", () => {
   assert.throws(() => validateWebViewConfig(config), /kind must be one of/);
 });
 
+test("rejects invalid WebView window size values", () => {
+  const config = {
+    name: "Bad Host",
+    version: "0.1.0",
+    frontend: { devUrl: "http://localhost:5173", distDir: "dist" },
+    windows: [
+      { id: "main", title: "Main", kind: "launcher", size: { width: 0, height: 1 } }
+    ]
+  };
+
+  assert.throws(() => validateWebViewConfig(config), /size\.width must be a positive integer/);
+});
+
+test("rejects invalid WebView routes and platform sections", () => {
+  assert.throws(() => validateWebViewConfig({
+    name: "Bad Host",
+    version: "0.1.0",
+    frontend: { devUrl: "http://localhost:5173", distDir: "dist" },
+    windows: [
+      { id: "main", title: "Main", kind: "launcher", route: 42, size: { width: 1, height: 1 } }
+    ]
+  }), /route must be a non-empty string/);
+
+  assert.throws(() => validateWebViewConfig({
+    name: "Bad Host",
+    version: "0.1.0",
+    frontend: { devUrl: "http://localhost:5173", distDir: "dist" },
+    windows: [
+      { id: "main", title: "Main", kind: "launcher", size: { width: 1, height: 1 } }
+    ],
+    platform: {
+      macos: "bad"
+    }
+  }), /platform\.macos must be an object/);
+});
