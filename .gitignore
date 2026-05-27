@@ -1,10 +1,12 @@
 .DS_Store
 node_modules/
 target/
+.build/
+bin/
+obj/
 dist/
 coverage/
 .env
 .env.*
 !.env.example
 npm-debug.log*
-

@@ -12,6 +12,8 @@
   "scripts": {
     "dev": "node apps/desktop-host/src/dev.mjs",
     "ui": "node apps/web-frontend/server.mjs",
+    "native:macos": "swift run --package-path apps/native-shells/macos KeelMacShell",
+    "native:windows": "dotnet run --project apps/native-shells/windows/Keel.WindowsShell.csproj",
     "gen": "node tools/generate-protocol.mjs",
     "check": "node tools/check-workspace.mjs",
     "test": "node --test",

@@ -28,6 +28,7 @@ changing the extension contract.
 ```text
 apps/
   desktop-host/        Local demo host plus WebView window config.
+  native-shells/       macOS WKWebView and Windows WebView2 shell templates.
   node-backend/        Long-lived backend process and extension supervisor.
   web-frontend/        Vite, React, shadcn/ui developer console.
 crates/
@@ -71,6 +72,16 @@ not required for the JavaScript path.
 `npm run ui` starts the local graphical console at `http://localhost:5173`. It
 uses Vite, React, Tailwind CSS, and shadcn/ui components, and calls the same
 backend/extension APIs as the command-line demo.
+
+Native shell templates load that same UI:
+
+```sh
+npm run native:macos
+npm run native:windows
+```
+
+The macOS shell requires a matching Xcode/Command Line Tools Swift toolchain.
+The Windows shell requires the .NET SDK on Windows.
 
 To run the Rust sample extension, install the Rust toolchain and build it:
 

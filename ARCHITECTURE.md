@@ -20,6 +20,10 @@ is intentionally wired to the same backend APIs that a native WebView shell will
 load, so newcomers can validate the foundation before any native shell is
 implemented.
 
+`apps/native-shells` contains the first native shell templates: a Swift/AppKit
+WKWebView host for macOS and a WPF/WebView2 host for Windows. They both read the
+same WebView host config and load the shared React console.
+
 ## Process model
 
 ```text
