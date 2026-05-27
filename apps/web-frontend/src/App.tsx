@@ -155,7 +155,7 @@ export function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="grid h-screen min-h-[680px] grid-rows-[44px_minmax(0,1fr)] overflow-hidden max-lg:h-auto max-lg:min-h-screen">
-        <header className="grid grid-cols-[220px_minmax(0,1fr)_320px] items-center border-b bg-muted/45 px-3 max-xl:grid-cols-[210px_minmax(0,1fr)] max-lg:grid-cols-1 max-lg:gap-2 max-lg:py-2">
+        <header className="keel-topbar grid grid-cols-[220px_minmax(0,1fr)_320px] items-center border-b bg-muted/45 pe-3 max-xl:grid-cols-[210px_minmax(0,1fr)] max-lg:grid-cols-1 max-lg:gap-2 max-lg:py-2">
           <div className="flex items-center gap-2 px-1 text-sm font-semibold">
             <ShipWheel className="h-4 w-4 text-primary" />
             Keel

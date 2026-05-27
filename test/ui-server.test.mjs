@@ -17,9 +17,14 @@ test("ui overview includes extension, protocol, host, and Rust data", async () =
 
 test("ui dashboard shell and search helper are wired", async () => {
   const html = await readFile("apps/web-frontend/index.html", "utf8");
+  const app = await readFile("apps/web-frontend/src/App.tsx", "utf8");
+  const css = await readFile("apps/web-frontend/src/index.css", "utf8");
   const search = await runUiSearch("ui");
 
   assert.match(html, /<title>Keel<\/title>/);
+  assert.match(app, /keel-topbar/);
+  assert.match(css, /user-select: none/);
+  assert.match(css, /--keel-window-control-inset-left/);
   assert.equal(search.extension, "hello-world-js");
   assert.equal(search.search.items[0].title, "Hello from Keel: ui");
 });
