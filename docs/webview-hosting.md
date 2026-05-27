@@ -38,3 +38,16 @@ A future WPF or WinUI shell should:
 `packages/host-config` validates the config at development time and is covered
 by `npm run test:node`.
 
+## Local React console
+
+`apps/web-frontend` provides a Vite React console for validating the host
+contract before native shells exist. It uses shadcn/ui components and calls the
+same `/api/overview`, `/api/config`, and `/api/search` endpoints exposed by
+`apps/web-frontend/server.mjs`.
+
+```sh
+npm run ui
+```
+
+Open `http://localhost:5173` to run the demo extension and inspect WebView,
+protocol, and Rust capability state.

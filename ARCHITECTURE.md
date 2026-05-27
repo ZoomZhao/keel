@@ -15,6 +15,11 @@ surface area.
 defines windows, frontend entry points, and platform-specific WebView defaults
 that future Swift and C# shells can consume.
 
+`apps/web-frontend` is a Vite React console built with shadcn/ui components. It
+is intentionally wired to the same backend APIs that a native WebView shell will
+load, so newcomers can validate the foundation before any native shell is
+implemented.
+
 ## Process model
 
 ```text

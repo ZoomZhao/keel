@@ -29,6 +29,7 @@ changing the extension contract.
 apps/
   desktop-host/        Local demo host plus WebView window config.
   node-backend/        Long-lived backend process and extension supervisor.
+  web-frontend/        Vite, React, shadcn/ui developer console.
 crates/
   keel-capabilities/   Rust capability registry and search foundation.
   keel-extension-sdk/  Rust helper SDK for extension authors.
@@ -60,11 +61,16 @@ Useful docs:
 npm run gen
 npm run check
 npm run test:node
+npm run ui
 npm run dev
 ```
 
 `npm run dev` starts the demo host and runs the JavaScript extension. Rust is
 not required for the JavaScript path.
+
+`npm run ui` starts the local graphical console at `http://localhost:5173`. It
+uses Vite, React, Tailwind CSS, and shadcn/ui components, and calls the same
+backend/extension APIs as the command-line demo.
 
 To run the Rust sample extension, install the Rust toolchain and build it:
 
@@ -84,6 +90,17 @@ launcher windows, warm rendering, native popovers, and background throttling
 behavior.
 
 The config is loaded and validated by `packages/host-config`.
+
+## Graphical console
+
+`apps/web-frontend` is the first user-facing UI. It gives new users a fast way
+to see the foundation working:
+
+- Run a demo extension search through the Node backend.
+- Inspect discovered JavaScript and Rust extension manifests.
+- Inspect WebView window configuration.
+- Inspect generated protocol methods.
+- Inspect Rust capability crates and primitives.
 
 ## Extension model
 

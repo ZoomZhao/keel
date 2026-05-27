@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "dev": "node apps/desktop-host/src/dev.mjs",
+    "ui": "node apps/web-frontend/server.mjs",
     "gen": "node tools/generate-protocol.mjs",
     "check": "node tools/check-workspace.mjs",
     "test": "node --test",
