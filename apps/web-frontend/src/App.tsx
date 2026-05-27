@@ -8,13 +8,11 @@ import {
   Cpu,
   Database,
   Gauge,
-  Layers3,
   Monitor,
   Play,
   RefreshCcw,
   Search,
   Server,
-  Settings2,
   ShipWheel,
   Sparkles,
   SquareTerminal,
@@ -155,19 +153,32 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(210_20%_92%),_hsl(105_15%_88%)_45%,_hsl(90_13%_82%))] p-5 text-foreground max-sm:p-2">
-      <div className="mx-auto grid h-[calc(100vh-40px)] min-h-[720px] max-w-[1220px] overflow-hidden rounded-xl border border-black/10 bg-card/95 shadow-[0_28px_90px_rgba(25,31,28,0.24)] backdrop-blur max-lg:h-auto max-lg:min-h-screen max-lg:grid-rows-none">
-        <header className="grid h-12 grid-cols-[220px_1fr_220px] items-center border-b bg-muted/70 px-4 max-lg:grid-cols-[1fr_auto]">
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-            <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
-            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-          </div>
-          <div className="flex items-center justify-center gap-2 text-sm font-semibold max-lg:hidden">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="grid h-screen min-h-[680px] grid-rows-[44px_minmax(0,1fr)] overflow-hidden max-lg:h-auto max-lg:min-h-screen">
+        <header className="grid grid-cols-[220px_minmax(0,1fr)_320px] items-center border-b bg-muted/45 px-3 max-xl:grid-cols-[210px_minmax(0,1fr)] max-lg:grid-cols-1 max-lg:gap-2 max-lg:py-2">
+          <div className="flex items-center gap-2 px-1 text-sm font-semibold">
             <ShipWheel className="h-4 w-4 text-primary" />
             Keel
           </div>
-          <div className="flex justify-end gap-2">
+          <form className="flex items-center gap-2" onSubmit={runSearch}>
+            <div className="relative w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Command query"
+                className="h-9 rounded-md bg-background pl-9 shadow-inner"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <Button className="h-9" type="submit">
+              <Play className="h-4 w-4" />
+              Run
+            </Button>
+          </form>
+          <div className="flex items-center justify-end gap-2 max-xl:hidden">
+            <Badge variant={status === "failed" ? "warning" : status === "ready" ? "success" : "secondary"}>
+              {statusLabel(status)}
+            </Badge>
             <Button aria-label="Refresh data" size="icon" variant="ghost" onClick={loadOverview}>
               <RefreshCcw className="h-4 w-4" />
             </Button>
@@ -217,22 +228,6 @@ export function App() {
                   {statusLabel(status)}
                 </Badge>
               </div>
-
-              <form className="flex gap-2" onSubmit={runSearch}>
-                <div className="relative w-full">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    aria-label="Command query"
-                    className="h-11 rounded-lg bg-background pl-9 text-[15px] shadow-inner"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-                <Button className="h-11" type="submit">
-                  <Play className="h-4 w-4" />
-                  Run
-                </Button>
-              </form>
             </section>
 
             <section className="grid grid-cols-4 border-b bg-muted/20 max-sm:grid-cols-2">
