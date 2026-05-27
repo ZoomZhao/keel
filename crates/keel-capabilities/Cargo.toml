@@ -2,8 +2,7 @@
 name = "keel-capabilities"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
 keel-protocol = { path = "../keel-protocol" }
-
