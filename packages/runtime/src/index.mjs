@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
-export async function discoverExtensions(roots) {
+export async function discoverExtensions(roots, { includeDisabled = false } = {}) {
   const manifests = [];
 
   for (const root of roots) {
@@ -15,7 +15,10 @@ export async function discoverExtensions(roots) {
       const manifestPath = join(dir, "manifest.json");
       try {
         const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-        manifests.push(validateManifest(manifest, dir));
+        const validated = validateManifest(manifest, dir);
+        if (includeDisabled || validated.enabled !== false) {
+          manifests.push(validated);
+        }
       } catch (error) {
         if (error.code !== "ENOENT") throw error;
       }
@@ -48,6 +51,12 @@ export function validateManifest(manifest, dir) {
   }
   if (!Array.isArray(manifest.capabilities)) {
     throw new Error("Extension manifest capabilities must be an array");
+  }
+  if (manifest.enabled !== undefined && typeof manifest.enabled !== "boolean") {
+    throw new Error("Extension manifest enabled must be a boolean");
+  }
+  if (manifest.optional !== undefined && typeof manifest.optional !== "boolean") {
+    throw new Error("Extension manifest optional must be a boolean");
   }
   for (const capability of manifest.capabilities) {
     if (typeof capability !== "string" || capability.length === 0) {

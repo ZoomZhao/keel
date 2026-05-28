@@ -37,6 +37,7 @@ export function validateWebViewConfig(config) {
 
   validatePlatform(config.platform?.macos, "platform.macos", ["webKit", "window"]);
   validatePlatform(config.platform?.windows, "platform.windows", ["webView2", "window"]);
+  validateLifecycle(config.lifecycle);
 
   return config;
 }
@@ -58,6 +59,19 @@ function validatePlatform(platform, path, objectKeys) {
   }
 }
 
+function validateLifecycle(lifecycle) {
+  if (lifecycle === undefined) return;
+  assertObject(lifecycle, "lifecycle");
+  if (lifecycle.hotkey !== undefined) {
+    assertObject(lifecycle.hotkey, "lifecycle.hotkey");
+    assertString(lifecycle.hotkey.id, "lifecycle.hotkey.id");
+    assertString(lifecycle.hotkey.accelerator, "lifecycle.hotkey.accelerator");
+    if (lifecycle.hotkey.action !== undefined) {
+      assertString(lifecycle.hotkey.action, "lifecycle.hotkey.action");
+    }
+  }
+}
+
 function assertObject(value, path) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${path} must be an object`);
@@ -73,4 +87,3 @@ function assertString(value, path) {
     throw new Error(`${path} must be a non-empty string`);
   }
 }
-

@@ -28,6 +28,14 @@ test("native bridge sends typed envelopes through an injected transport", async 
     method: nativeBridgeMethods.TOAST_SHOW,
     params: { title: "Ready" }
   }]);
+
+  await bridge.registerGlobalHotkey({ id: "launcher.toggle", accelerator: "Command+Shift+K" });
+  await bridge.showPopover({ id: "status", title: "Keel" });
+  await bridge.showTooltip({ id: "hotkey", text: "Command+Shift+K" });
+
+  assert.equal(messages[1].method, nativeBridgeMethods.GLOBAL_HOTKEY_REGISTER);
+  assert.equal(messages[2].method, nativeBridgeMethods.POPOVER_SHOW);
+  assert.equal(messages[3].method, nativeBridgeMethods.TOOLTIP_SHOW);
 });
 
 test("browser native bridge detects macOS and Windows transports", async () => {
@@ -76,4 +84,40 @@ test("browser native bridge has a non-native fallback", async () => {
     ok: false,
     reason: "native_transport_unavailable"
   });
+});
+
+test("browser native bridge listens for host events", async () => {
+  const listeners = new Map();
+  const win = {
+    addEventListener(name, listener) {
+      listeners.set(name, listener);
+    },
+    removeEventListener(name) {
+      listeners.delete(name);
+    },
+    webkit: {
+      messageHandlers: {
+        keelHost: {
+          postMessage() {}
+        }
+      }
+    }
+  };
+
+  const events = [];
+  const unsubscribe = createBrowserNativeBridge({ window: win }).onNativeEvent((event) => {
+    events.push(event);
+  });
+
+  listeners.get("keel:native-event")({
+    detail: {
+      source: "keelHost",
+      method: "globalHotkey.pressed",
+      payload: { id: "launcher.toggle" }
+    }
+  });
+
+  assert.equal(events[0].method, "globalHotkey.pressed");
+  unsubscribe();
+  assert.equal(listeners.has("keel:native-event"), false);
 });

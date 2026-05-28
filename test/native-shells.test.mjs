@@ -13,6 +13,11 @@ test("macOS shell reads the shared WebView host config", async () => {
   assert.match(source, /WKScriptMessageHandler/);
   assert.match(source, /name: "keelHost"/);
   assert.match(source, /clipboard\.writeText/);
+  assert.match(source, /globalHotkey\.register/);
+  assert.match(source, /popover\.show/);
+  assert.match(source, /tooltip\.show/);
+  assert.match(source, /prewarmBeforeShow/);
+  assert.match(source, /windowShouldClose/);
   assert.match(source, /config\.frontend\.devUrl/);
 });
 
@@ -28,5 +33,10 @@ test("Windows shell reads the shared WebView host config", async () => {
   assert.match(source, /WebMessageReceived/);
   assert.match(source, /AdditionalBrowserArguments/);
   assert.match(source, /clipboard\.writeText/);
+  assert.match(source, /RegisterHotKey/);
+  assert.match(source, /globalHotkey\.register/);
+  assert.match(source, /popover\.show/);
+  assert.match(source, /tooltip\.show/);
+  assert.match(source, /PrewarmBeforeShow/);
   assert.match(source, /CoreWebView2\.Navigate/);
 });

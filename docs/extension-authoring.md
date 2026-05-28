@@ -102,6 +102,11 @@ fn main() {
 For production, point the manifest command at the compiled binary instead of
 `cargo run`.
 
+`extensions/rust/file-indexer` is a disabled optional placeholder. It sketches
+where a future long-running Rust sidecar can watch configured filesystem paths,
+maintain a local index from file events, and return results through
+`search.query` without making file indexing part of the default starter app.
+
 ## Capability roadmap
 
 The manifest currently declares coarse capabilities. The next layer should add

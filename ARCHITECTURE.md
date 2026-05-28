@@ -111,9 +111,21 @@ the platform already has a stronger primitive.
 `{ id, method, params }`. The macOS shell registers
 `window.webkit.messageHandlers.keelHost`, and the Windows shell listens for
 WebView2 messages. Implemented host-side methods include readiness,
-show/hide/focus, toast logging, and clipboard text writes; global hotkey
-registration and clipboard reads are reserved in the bridge contract for the
-next native integration pass.
+show/hide/focus, toast logging, clipboard text reads/writes, global hotkey
+registration, and native popover/tooltip panels. Native shells send host events
+back to the WebView as `keel:native-event` messages, which lets the launcher
+react to global hotkey presses without making the frontend own OS APIs.
+
+The launcher lifecycle is config-driven: native hosts can prewarm the WebView
+hidden, show the window only after `host.ready`, keep the window process alive
+when closed, and focus it from the registered hotkey.
+
+## Optional file indexing
+
+`extensions/rust/file-indexer` is a disabled optional extension placeholder for
+future file indexing. It is deliberately outside the default backend roots so
+Keel stays small until an app opts into path watching, persistent indexes, and
+cross-platform search storage.
 
 ## Performance rules
 

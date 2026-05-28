@@ -1,13 +1,34 @@
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 
 namespace Keel.WindowsShell;
 
 public partial class MainWindow : Window
 {
+    private const int WmHotkey = 0x0312;
+    private const uint ModAlt = 0x0001;
+    private const uint ModControl = 0x0002;
+    private const uint ModShift = 0x0004;
+    private const uint ModWin = 0x0008;
+
+    private readonly Dictionary<int, HotkeyRegistration> _hotkeys = new();
+    private int _nextHotkeyId = 1;
+    private HostConfig? _config;
+    private WindowConfig? _launcher;
+    private HwndSource? _source;
+    private Popup? _popover;
+    private Popup? _tooltip;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -17,16 +38,20 @@ public partial class MainWindow : Window
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         var config = LoadHostConfig();
-        var launcher = config.Windows.FirstOrDefault(window => window.Kind == "launcher")
+        _config = config;
+        _launcher = config.Windows.FirstOrDefault(window => window.Kind == "launcher")
             ?? config.Windows[0];
 
-        Title = launcher.Title;
-        Width = launcher.Size.Width;
-        Height = launcher.Size.Height;
-        MinWidth = launcher.Size.MinWidth ?? 520;
-        MinHeight = launcher.Size.MinHeight ?? 360;
-        ShowInTaskbar = !(launcher.HideFromTaskSwitcher ?? false);
-        Topmost = launcher.AlwaysOnTop ?? false;
+        Title = _launcher.Title;
+        Width = _launcher.Size.Width;
+        Height = _launcher.Size.Height;
+        MinWidth = _launcher.Size.MinWidth ?? 520;
+        MinHeight = _launcher.Size.MinHeight ?? 360;
+        ShowInTaskbar = !(config.Platform?.Windows?.Window?.ShowInTaskbar == false || _launcher.HideFromTaskSwitcher == true);
+        Topmost = _launcher.AlwaysOnTop ?? false;
+
+        _source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        _source?.AddHook(WndProc);
 
         var webView2Args = config.Platform?.Windows?.WebView2?.AdditionalBrowserArguments;
         var environmentOptions = new CoreWebView2EnvironmentOptions(
@@ -36,7 +61,35 @@ public partial class MainWindow : Window
 
         await WebView.EnsureCoreWebView2Async(environment);
         WebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-        WebView.CoreWebView2.Navigate(config.Frontend.DevUrl + (launcher.Route ?? "/"));
+        WebView.CoreWebView2.Navigate(config.Frontend.DevUrl + (_launcher.Route ?? "/"));
+
+        if (config.Platform?.Windows?.WebView2?.PrewarmBeforeShow == true)
+        {
+            Opacity = 0;
+            Hide();
+        }
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (_launcher?.CloseBehavior == "hide")
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
+
+        base.OnClosing(e);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        foreach (var id in _hotkeys.Keys.ToArray())
+        {
+            UnregisterHotKey(new WindowInteropHelper(this).Handle, id);
+        }
+        _source?.RemoveHook(WndProc);
+        base.OnClosed(e);
     }
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -57,17 +110,12 @@ public partial class MainWindow : Window
         switch (method)
         {
             case "host.ready":
-                Show();
-                break;
             case "window.show":
-                Show();
-                Activate();
+            case "window.focus":
+                ShowLauncher();
                 break;
             case "window.hide":
                 Hide();
-                break;
-            case "window.focus":
-                Activate();
                 break;
             case "toast.show":
                 var title = GetString(parameters, "title") ?? "Keel";
@@ -79,13 +127,202 @@ public partial class MainWindow : Window
                 if (text is not null) Clipboard.SetText(text);
                 break;
             case "clipboard.readText":
+                EmitNativeEvent("clipboard.readText.result", new { text = Clipboard.ContainsText() ? Clipboard.GetText() : string.Empty });
+                break;
             case "globalHotkey.register":
-                Console.WriteLine($"[Keel bridge] Native method registered for future implementation: {method}");
+                RegisterGlobalHotkey(parameters);
+                break;
+            case "popover.show":
+                if (_config?.Platform?.Windows?.Window?.NativePopovers != false) ShowPopover(parameters);
+                break;
+            case "popover.hide":
+                HidePopup(ref _popover);
+                break;
+            case "tooltip.show":
+                if (_config?.Platform?.Windows?.Window?.NativeTooltips != false) ShowTooltip(parameters);
+                break;
+            case "tooltip.hide":
+                HidePopup(ref _tooltip);
                 break;
             default:
                 Console.WriteLine($"[Keel bridge] Unsupported method: {method}");
                 break;
         }
+    }
+
+    private void ShowLauncher()
+    {
+        Opacity = 1;
+        Show();
+        Activate();
+        Topmost = _launcher?.AlwaysOnTop ?? Topmost;
+    }
+
+    private void RegisterGlobalHotkey(JsonElement parameters)
+    {
+        var id = GetString(parameters, "id");
+        var accelerator = GetString(parameters, "accelerator");
+        if (id is null || accelerator is null || !TryParseHotkey(id, accelerator, GetString(parameters, "action"), out var registration))
+        {
+            Console.WriteLine("[Keel hotkey] Invalid registration.");
+            return;
+        }
+
+        var nativeId = _nextHotkeyId++;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (RegisterHotKey(hwnd, nativeId, registration.Modifiers, registration.VirtualKey))
+        {
+            _hotkeys[nativeId] = registration;
+            Console.WriteLine($"[Keel hotkey] Registered {accelerator}");
+        }
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (message == WmHotkey && _hotkeys.TryGetValue(wParam.ToInt32(), out var hotkey))
+        {
+            if (hotkey.Action == "window.focus") ShowLauncher();
+            EmitNativeEvent("globalHotkey.pressed", new
+            {
+                id = hotkey.Id,
+                accelerator = hotkey.Accelerator
+            });
+            handled = true;
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private void EmitNativeEvent(string method, object payload)
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            source = "keelHost",
+            method,
+            payload
+        });
+        WebView.CoreWebView2?.PostWebMessageAsJson(body);
+    }
+
+    private void ShowPopover(JsonElement parameters)
+    {
+        var title = GetString(parameters, "title") ?? "Keel";
+        var message = GetString(parameters, "message") ?? string.Empty;
+        _popover = ShowPopup(_popover, title, message, parameters, 260, 86);
+    }
+
+    private void ShowTooltip(JsonElement parameters)
+    {
+        var text = GetString(parameters, "text") ?? string.Empty;
+        _tooltip = ShowPopup(_tooltip, text, string.Empty, parameters, 180, 38);
+        var tooltip = _tooltip;
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(2000);
+            if (ReferenceEquals(_tooltip, tooltip)) HidePopup(ref _tooltip);
+        });
+    }
+
+    private Popup ShowPopup(Popup? current, string title, string message, JsonElement parameters, double width, double height)
+    {
+        HidePopup(ref current);
+        var popup = new Popup
+        {
+            AllowsTransparency = true,
+            PlacementTarget = WebView,
+            Placement = PlacementMode.RelativePoint,
+            HorizontalOffset = GetAnchorNumber(parameters, "x"),
+            VerticalOffset = GetAnchorNumber(parameters, "y") + GetAnchorNumber(parameters, "height") + 8,
+            Child = BuildPopupContent(title, message, width, height),
+            IsOpen = true
+        };
+        return popup;
+    }
+
+    private static Border BuildPopupContent(string title, string message, double width, double height)
+    {
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(14, 10, 14, 10)
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        if (!string.IsNullOrEmpty(message))
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = message,
+                FontSize = 12,
+                Opacity = 0.72,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+        }
+
+        return new Border
+        {
+            Width = width,
+            Height = height,
+            CornerRadius = new CornerRadius(8),
+            Background = new SolidColorBrush(Color.FromArgb(242, 246, 248, 248)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(204, 212, 212)),
+            BorderThickness = new Thickness(1),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 18,
+                ShadowDepth = 4,
+                Opacity = 0.22
+            },
+            Child = panel
+        };
+    }
+
+    private static void HidePopup(ref Popup? popup)
+    {
+        if (popup is not null) popup.IsOpen = false;
+        popup = null;
+    }
+
+    private static double GetAnchorNumber(JsonElement parameters, string name)
+    {
+        if (parameters.ValueKind != JsonValueKind.Object ||
+            !parameters.TryGetProperty("anchorRect", out var anchor) ||
+            anchor.ValueKind != JsonValueKind.Object ||
+            !anchor.TryGetProperty(name, out var property) ||
+            !property.TryGetDouble(out var value))
+        {
+            return 0;
+        }
+
+        return value;
+    }
+
+    private static bool TryParseHotkey(string id, string accelerator, string? action, out HotkeyRegistration registration)
+    {
+        registration = default;
+        var parts = accelerator.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0) return false;
+
+        uint modifiers = 0;
+        foreach (var modifier in parts[..^1])
+        {
+            modifiers |= modifier.ToLowerInvariant() switch
+            {
+                "cmd" or "command" or "meta" or "win" => ModWin,
+                "shift" => ModShift,
+                "option" or "alt" => ModAlt,
+                "control" or "ctrl" => ModControl,
+                _ => 0
+            };
+        }
+
+        if (!Enum.TryParse<Key>(parts[^1], true, out var key)) return false;
+        var virtualKey = (uint)KeyInterop.VirtualKeyFromKey(key);
+        registration = new HotkeyRegistration(id, accelerator, action, modifiers, virtualKey);
+        return virtualKey > 0;
     }
 
     private static string? GetString(JsonElement element, string propertyName)
@@ -110,7 +347,21 @@ public partial class MainWindow : Window
             PropertyNameCaseInsensitive = true
         }) ?? throw new InvalidOperationException("Failed to parse host config.");
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 }
+
+public readonly record struct HotkeyRegistration(
+    string Id,
+    string Accelerator,
+    string? Action,
+    uint Modifiers,
+    uint VirtualKey
+);
 
 public sealed record HostConfig(
     string Name,
@@ -129,7 +380,8 @@ public sealed record WindowConfig(
     WindowSize Size,
     bool? Transparent,
     bool? AlwaysOnTop,
-    bool? HideFromTaskSwitcher
+    bool? HideFromTaskSwitcher,
+    string? CloseBehavior
 );
 
 public sealed record WindowSize(int Width, int Height, int? MinWidth, int? MinHeight);
@@ -140,6 +392,16 @@ public sealed record PlatformConfig(
 
 public sealed record WindowsPlatformConfig(WebView2Config? WebView2, WindowPlatformConfig? Window);
 
-public sealed record WebView2Config(bool? TransparentBackground, string[]? AdditionalBrowserArguments);
+public sealed record WebView2Config(
+    bool? TransparentBackground,
+    string[]? AdditionalBrowserArguments,
+    bool? PrewarmBeforeShow
+);
 
-public sealed record WindowPlatformConfig(bool? CustomChrome, bool? AcrylicBackdrop, bool? ShowInTaskbar);
+public sealed record WindowPlatformConfig(
+    bool? CustomChrome,
+    bool? AcrylicBackdrop,
+    bool? ShowInTaskbar,
+    bool? NativeTooltips,
+    bool? NativePopovers
+);

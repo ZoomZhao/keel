@@ -68,12 +68,16 @@ export async function createUiServer({ useVite = false } = {}) {
 
 export async function getOverview() {
   const backend = getSharedBackendService();
-  const [webViewConfig, protocol, jsExtensions, rustExtensions] = await Promise.all([
+  const [webViewConfig, protocol, jsExtensions, rustExtensions, optionalRustExtensions] = await Promise.all([
     loadWebViewConfig(),
     readProtocolSchema(),
     discoverExtensions(["extensions/js"]),
-    discoverExtensions(["extensions/rust"])
+    discoverExtensions(["extensions/rust"]),
+    discoverExtensions(["extensions/rust"], { includeDisabled: true })
   ]);
+  const optionalExtensions = optionalRustExtensions.filter((manifest) => (
+    manifest.enabled === false || manifest.optional === true
+  ));
 
   const extensions = [...jsExtensions, ...rustExtensions].map((manifest) => ({
     id: manifest.id,
@@ -91,11 +95,22 @@ export async function getOverview() {
       license: "Apache-2.0"
     },
     extensions,
+    optionalExtensions: optionalExtensions.map((manifest) => ({
+      id: manifest.id,
+      name: manifest.name,
+      version: manifest.version,
+      kind: manifest.entry.kind,
+      command: [manifest.entry.command, ...(manifest.entry.args ?? [])].join(" "),
+      capabilities: manifest.capabilities,
+      enabled: manifest.enabled ?? true,
+      optional: manifest.optional ?? false
+    })),
     webView: {
       windows: webViewConfig.windows,
       frontend: webViewConfig.frontend,
       macos: webViewConfig.platform?.macos,
-      platformWindows: webViewConfig.platform?.windows
+      platformWindows: webViewConfig.platform?.windows,
+      lifecycle: webViewConfig.lifecycle
     },
     backend: await backend.health(),
     protocol: {

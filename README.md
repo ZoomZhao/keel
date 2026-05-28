@@ -30,7 +30,7 @@ apps/
   desktop-host/        Local demo host plus WebView window config.
   native-shells/       macOS WKWebView and Windows WebView2 shell templates.
   node-backend/        Long-lived backend process and extension supervisor.
-  web-frontend/        Vite, React, shadcn/ui developer console.
+  web-frontend/        Vite, React, shadcn/ui launcher console.
 crates/
   keel-capabilities/   Rust capability registry and search foundation.
   keel-extension-sdk/  Rust helper SDK for extension authors.
@@ -70,7 +70,7 @@ npm run dev
 `npm run dev` starts the demo host and runs the JavaScript extension. Rust is
 not required for the JavaScript path.
 
-`npm run ui` starts the local graphical console at `http://localhost:5173`. It
+`npm run ui` starts the local launcher console at `http://localhost:5173`. It
 uses Vite, React, Tailwind CSS, and shadcn/ui components, and calls the same
 backend/extension APIs as the command-line demo.
 
@@ -98,21 +98,21 @@ small command script for local development.
 `apps/desktop-host/webview.config.json` defines the windows a native shell
 should create and the platform-specific WebView defaults it should apply. It
 includes macOS WKWebView settings and Windows WebView2 settings for transparent
-launcher windows, warm rendering, native popovers, and background throttling
-behavior.
+launcher windows, warm rendering, native popovers/tooltips, global hotkeys, and
+background throttling behavior.
 
 The config is loaded and validated by `packages/host-config`.
 
 ## Graphical console
 
-`apps/web-frontend` is the first user-facing UI. It gives new users a fast way
-to see the foundation working:
+`apps/web-frontend` is the first user-facing UI. It is intentionally a small
+launcher surface rather than a full dashboard:
 
 - Run a demo extension search through the Node backend.
-- Inspect discovered JavaScript and Rust extension manifests.
-- Inspect WebView window configuration.
-- Inspect generated protocol methods.
-- Inspect Rust capability crates and primitives.
+- See whether the backend process is warm.
+- Register the launcher hotkey through the native bridge when a native shell is
+  present.
+- Exercise native tooltip and popover bridge calls.
 
 ## Backend service
 
@@ -153,8 +153,17 @@ descriptors, Toast descriptors, and async local KV storage.
 the WebView UI. The macOS shell registers a `keelHost` WKScriptMessageHandler
 and the Windows shell registers WebView2 `WebMessageReceived`. Current bridge
 methods cover host readiness, window show/hide/focus, toast requests,
-clipboard text writes, and the placeholder contract for global hotkey
-registration.
+clipboard text reads/writes, global hotkey registration, and native
+popover/tooltip requests. Native shells can send events back to the WebView
+through `keel:native-event` or WebView2 `PostWebMessageAsJson`.
+
+## Optional Rust file indexer
+
+`extensions/rust/file-indexer` is a disabled optional placeholder for a future
+cross-platform file indexing service. It is intentionally not loaded by default.
+The planned shape is a long-running Rust sidecar that watches configured paths,
+updates an index from filesystem events, and exposes search results through the
+same JSON Lines extension protocol.
 
 ## Protocol workflow
 
@@ -176,8 +185,9 @@ CI checks that generated files are current.
 This is a foundation, not a full desktop app. The next useful layers are:
 
 - Real global hotkey and menubar/tray implementations in the native shells.
-- Native tooltip/popover rendering outside WebView bounds.
-- Deeper Rust capabilities for file indexing, embeddings, and sync.
+- Conflict handling and unregister flows for native global hotkeys.
+- A real implementation behind the optional Rust file indexer placeholder.
+- Deeper Rust capabilities for embeddings and sync.
 - A permission system for extension access to files, network, and secrets.
 
 ## Tests

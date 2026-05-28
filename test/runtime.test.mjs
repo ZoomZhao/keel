@@ -68,6 +68,14 @@ test("discovers JavaScript example extension", async () => {
   assert.deepEqual(ids, ["hello-world-js"]);
 });
 
+test("disabled optional extensions are excluded unless requested", async () => {
+  const active = await discoverExtensions(["extensions/rust"]);
+  const all = await discoverExtensions(["extensions/rust"], { includeDisabled: true });
+
+  assert.ok(active.every((manifest) => manifest.id !== "keel-file-indexer"));
+  assert.ok(all.some((manifest) => manifest.id === "keel-file-indexer"));
+});
+
 test("calls JavaScript extension over JSON Lines RPC", async () => {
   const [manifest] = await discoverExtensions(["extensions/js"]);
   const extension = new ExtensionProcess(manifest);

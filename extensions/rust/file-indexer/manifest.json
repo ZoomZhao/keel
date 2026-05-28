@@ -1,0 +1,13 @@
+{
+  "id": "keel-file-indexer",
+  "name": "Keel File Indexer",
+  "version": "0.1.0",
+  "enabled": false,
+  "optional": true,
+  "entry": {
+    "kind": "rust",
+    "command": "cargo",
+    "args": ["run", "--quiet"]
+  },
+  "capabilities": ["search", "file-index"]
+}

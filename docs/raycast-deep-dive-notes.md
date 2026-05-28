@@ -25,3 +25,5 @@ product work in shared web/backend code, and make runtime boundaries typed.
 - Treat memory and startup behavior as product requirements, not cleanup work.
 - Keep WebView startup and throttling behavior explicit in host configuration
   so native shells do not drift per platform.
+- Keep file indexing as an opt-in Rust sidecar capability until an app has real
+  path scopes, persistence, and permission prompts.

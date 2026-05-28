@@ -1,0 +1,9 @@
+[package]
+name = "keel-file-indexer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+keel-extension-sdk = { path = "../../../crates/keel-extension-sdk" }
+keel-protocol = { path = "../../../crates/keel-protocol" }

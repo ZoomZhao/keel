@@ -39,6 +39,17 @@
       "closeBehavior": "close"
     }
   ],
+  "lifecycle": {
+    "startup": "prewarm-hidden",
+    "showWhen": "host.ready",
+    "hideOnBlur": true,
+    "closeBehavior": "hide-launcher",
+    "hotkey": {
+      "id": "launcher.toggle",
+      "accelerator": "Command+Shift+K",
+      "action": "window.focus"
+    }
+  },
   "platform": {
     "macos": {
       "webKit": {
@@ -64,6 +75,7 @@
       "webView2": {
         "environment": "shared",
         "transparentBackground": true,
+        "prewarmBeforeShow": true,
         "additionalBrowserArguments": [
           "--disable-features=msWebOOUI,msPdfOOUI",
           "--disable-renderer-backgrounding"
@@ -79,4 +91,3 @@
     }
   }
 }
-

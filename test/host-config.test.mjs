@@ -7,8 +7,10 @@ test("loads desktop WebView config", async () => {
 
   assert.equal(config.name, "Keel Desktop Host");
   assert.equal(config.windows.length, 2);
+  assert.equal(config.lifecycle.hotkey.accelerator, "Command+Shift+K");
   assert.equal(config.platform.macos.webKit.viewClass, "WKWebView");
   assert.equal(config.platform.windows.webView2.transparentBackground, true);
+  assert.equal(config.platform.windows.webView2.prewarmBeforeShow, true);
 });
 
 test("rejects duplicate WebView window ids", () => {
