@@ -29,13 +29,15 @@ test("native bridge sends typed envelopes through an injected transport", async 
     params: { title: "Ready" }
   }]);
 
-  await bridge.registerGlobalHotkey({ id: "launcher.toggle", accelerator: "Command+Shift+K" });
+  await bridge.registerGlobalHotkey({ id: "launcher.toggle", accelerator: "Command+Space" });
   await bridge.showPopover({ id: "status", title: "Keel" });
-  await bridge.showTooltip({ id: "hotkey", text: "Command+Shift+K" });
+  await bridge.showTooltip({ id: "hotkey", text: "Command+Space" });
+  await bridge.hideToast({ id: "demo" });
 
   assert.equal(messages[1].method, nativeBridgeMethods.GLOBAL_HOTKEY_REGISTER);
   assert.equal(messages[2].method, nativeBridgeMethods.POPOVER_SHOW);
   assert.equal(messages[3].method, nativeBridgeMethods.TOOLTIP_SHOW);
+  assert.equal(messages[4].method, nativeBridgeMethods.TOAST_HIDE);
 });
 
 test("browser native bridge detects macOS and Windows transports", async () => {

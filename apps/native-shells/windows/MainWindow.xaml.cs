@@ -20,19 +20,37 @@ public partial class MainWindow : Window
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
     private const uint ModWin = 0x0008;
+    private const double OverlayCornerRadius = 10;
+    private const double OverlayAnchorOffset = 10;
+    private const double PopoverMinWidth = 160;
+    private const double PopoverMaxWidth = 320;
+    private const double PopoverMinHeight = 48;
+    private const double PopoverMaxHeight = 180;
+    private const double TooltipMinWidth = 72;
+    private const double TooltipMaxWidth = 240;
+    private const double TooltipMinHeight = 34;
+    private const double TooltipMaxHeight = 72;
+    private const double ToastMinWidth = 180;
+    private const double ToastMaxWidth = 320;
+    private const double ToastMinHeight = 48;
+    private const double ToastMaxHeight = 140;
+    private const double ToastScreenVerticalRatio = 0.72;
 
     private readonly Dictionary<int, HotkeyRegistration> _hotkeys = new();
+    private readonly Dictionary<string, int> _hotkeyIdsByLogicalId = new();
     private int _nextHotkeyId = 1;
     private HostConfig? _config;
     private WindowConfig? _launcher;
     private HwndSource? _source;
     private Popup? _popover;
     private Popup? _tooltip;
+    private Popup? _toast;
 
     public MainWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        PreviewKeyDown += OnPreviewKeyDown;
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -90,8 +108,17 @@ public partial class MainWindow : Window
         {
             UnregisterHotKey(new WindowInteropHelper(this).Handle, id);
         }
+        _hotkeyIdsByLogicalId.Clear();
         _source?.RemoveHook(WndProc);
         base.OnClosed(e);
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        HideNativeOverlays();
+        Hide();
+        e.Handled = true;
     }
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -121,9 +148,10 @@ public partial class MainWindow : Window
                 Hide();
                 break;
             case "toast.show":
-                var title = GetString(parameters, "title") ?? "Keel";
-                var message = GetString(parameters, "message") ?? string.Empty;
-                Console.WriteLine($"[Keel toast] {title} {message}");
+                ShowToast(parameters);
+                break;
+            case "toast.hide":
+                HidePopup(ref _toast);
                 break;
             case "clipboard.writeText":
                 var text = GetString(parameters, "text");
@@ -165,6 +193,7 @@ public partial class MainWindow : Window
     {
         HidePopup(ref _popover);
         HidePopup(ref _tooltip);
+        HidePopup(ref _toast);
     }
 
     private void RegisterGlobalHotkey(JsonElement parameters)
@@ -177,11 +206,24 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_hotkeyIdsByLogicalId.TryGetValue(id, out var existingId))
+        {
+            if (_hotkeys.TryGetValue(existingId, out var existing) && existing == registration)
+            {
+                return;
+            }
+
+            UnregisterHotKey(new WindowInteropHelper(this).Handle, existingId);
+            _hotkeys.Remove(existingId);
+            _hotkeyIdsByLogicalId.Remove(id);
+        }
+
         var nativeId = _nextHotkeyId++;
         var hwnd = new WindowInteropHelper(this).Handle;
         if (RegisterHotKey(hwnd, nativeId, registration.Modifiers, registration.VirtualKey))
         {
             _hotkeys[nativeId] = registration;
+            _hotkeyIdsByLogicalId[id] = nativeId;
             Console.WriteLine($"[Keel hotkey] Registered {accelerator}");
         }
     }
@@ -217,13 +259,13 @@ public partial class MainWindow : Window
     {
         var title = GetString(parameters, "title") ?? "Keel";
         var message = GetString(parameters, "message") ?? string.Empty;
-        _popover = ShowPopup(_popover, title, message, parameters, 260, 86);
+        _popover = ShowPopup(_popover, title, message, parameters, NativeOverlayKind.Popover);
     }
 
     private void ShowTooltip(JsonElement parameters)
     {
         var text = GetString(parameters, "text") ?? string.Empty;
-        _tooltip = ShowPopup(_tooltip, text, string.Empty, parameters, 180, 38);
+        _tooltip = ShowPopup(_tooltip, text, string.Empty, parameters, NativeOverlayKind.Tooltip);
         var tooltip = _tooltip;
         _ = Dispatcher.InvokeAsync(async () =>
         {
@@ -232,32 +274,71 @@ public partial class MainWindow : Window
         });
     }
 
-    private Popup ShowPopup(Popup? current, string title, string message, JsonElement parameters, double width, double height)
+    private void ShowToast(JsonElement parameters)
+    {
+        var title = GetString(parameters, "title") ?? "Keel";
+        var message = GetString(parameters, "message") ?? string.Empty;
+        _toast = ShowPopup(_toast, title, message, parameters, NativeOverlayKind.Toast);
+        var toast = _toast;
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(3200);
+            if (ReferenceEquals(_toast, toast)) HidePopup(ref _toast);
+        });
+    }
+
+    private Popup ShowPopup(
+        Popup? current,
+        string title,
+        string message,
+        JsonElement parameters,
+        NativeOverlayKind kind
+    )
     {
         HidePopup(ref current);
+        var isToast = kind == NativeOverlayKind.Toast;
+        var child = BuildPopupContent(title, message, kind);
+        var desiredSize = MeasureOverlay(child, kind);
+        var workArea = SystemParameters.WorkArea;
         var popup = new Popup
         {
             AllowsTransparency = true,
             PlacementTarget = WebView,
-            Placement = PlacementMode.RelativePoint,
-            HorizontalOffset = GetAnchorNumber(parameters, "x"),
-            VerticalOffset = GetAnchorNumber(parameters, "y") + GetAnchorNumber(parameters, "height") + 8,
-            Child = BuildPopupContent(title, message, width, height),
+            Placement = isToast ? PlacementMode.AbsolutePoint : PlacementMode.RelativePoint,
+            HorizontalOffset = isToast
+                ? workArea.Left + ((workArea.Width - desiredSize.Width) / 2)
+                : GetAnchorNumber(parameters, "x"),
+            VerticalOffset = isToast
+                ? workArea.Top + (workArea.Height * ToastScreenVerticalRatio) - (desiredSize.Height / 2)
+                : GetAnchorNumber(parameters, "y") + GetAnchorNumber(parameters, "height") + OverlayAnchorOffset,
+            Child = child,
             IsOpen = true
         };
         return popup;
     }
 
-    private static Border BuildPopupContent(string title, string message, double width, double height)
+    private static Border BuildPopupContent(string title, string message, NativeOverlayKind kind)
     {
+        var isTooltip = kind == NativeOverlayKind.Tooltip;
+        var minWidth = MinWidthFor(kind);
+        var maxWidth = MaxWidthFor(kind);
+        var minHeight = MinHeightFor(kind);
+        var maxHeight = MaxHeightFor(kind);
+        var horizontalInset = isTooltip ? 12 : 14;
+        var verticalInset = isTooltip ? 9 : 12;
+        var contentMaxWidth = maxWidth - (horizontalInset * 2);
         var panel = new StackPanel
         {
-            Margin = new Thickness(14, 10, 14, 10)
+            Margin = new Thickness(horizontalInset, verticalInset, horizontalInset, verticalInset)
         };
         panel.Children.Add(new TextBlock
         {
             Text = title,
+            Foreground = new SolidColorBrush(Color.FromRgb(27, 35, 35)),
+            FontSize = isTooltip ? 12 : 13,
             FontWeight = FontWeights.SemiBold,
+            MaxWidth = contentMaxWidth,
+            TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis
         });
         if (!string.IsNullOrEmpty(message))
@@ -265,29 +346,74 @@ public partial class MainWindow : Window
             panel.Children.Add(new TextBlock
             {
                 Text = message,
+                Foreground = new SolidColorBrush(Color.FromRgb(88, 99, 99)),
                 FontSize = 12,
-                Opacity = 0.72,
+                Margin = new Thickness(0, 4, 0, 0),
+                MaxWidth = contentMaxWidth,
+                MaxHeight = (maxHeight - minHeight) + 24,
+                TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
         }
 
         return new Border
         {
-            Width = width,
-            Height = height,
-            CornerRadius = new CornerRadius(8),
-            Background = new SolidColorBrush(Color.FromArgb(242, 246, 248, 248)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(204, 212, 212)),
-            BorderThickness = new Thickness(1),
+            MinWidth = minWidth,
+            MaxWidth = maxWidth,
+            MinHeight = minHeight,
+            MaxHeight = maxHeight,
+            ClipToBounds = true,
+            CornerRadius = new CornerRadius(OverlayCornerRadius),
+            Background = new SolidColorBrush(Color.FromArgb(246, 247, 250, 250)),
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
             Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
-                BlurRadius = 18,
-                ShadowDepth = 4,
-                Opacity = 0.22
+                BlurRadius = 24,
+                ShadowDepth = 8,
+                Color = Color.FromRgb(15, 23, 23),
+                Opacity = 0.16
             },
             Child = panel
         };
     }
+
+    private static Size MeasureOverlay(FrameworkElement element, NativeOverlayKind kind)
+    {
+        element.Measure(new Size(MaxWidthFor(kind), MaxHeightFor(kind)));
+        return new Size(
+            Math.Min(Math.Max(element.DesiredSize.Width, MinWidthFor(kind)), MaxWidthFor(kind)),
+            Math.Min(Math.Max(element.DesiredSize.Height, MinHeightFor(kind)), MaxHeightFor(kind))
+        );
+    }
+
+    private static double MinWidthFor(NativeOverlayKind kind) => kind switch
+    {
+        NativeOverlayKind.Tooltip => TooltipMinWidth,
+        NativeOverlayKind.Toast => ToastMinWidth,
+        _ => PopoverMinWidth
+    };
+
+    private static double MaxWidthFor(NativeOverlayKind kind) => kind switch
+    {
+        NativeOverlayKind.Tooltip => TooltipMaxWidth,
+        NativeOverlayKind.Toast => ToastMaxWidth,
+        _ => PopoverMaxWidth
+    };
+
+    private static double MinHeightFor(NativeOverlayKind kind) => kind switch
+    {
+        NativeOverlayKind.Tooltip => TooltipMinHeight,
+        NativeOverlayKind.Toast => ToastMinHeight,
+        _ => PopoverMinHeight
+    };
+
+    private static double MaxHeightFor(NativeOverlayKind kind) => kind switch
+    {
+        NativeOverlayKind.Tooltip => TooltipMaxHeight,
+        NativeOverlayKind.Toast => ToastMaxHeight,
+        _ => PopoverMaxHeight
+    };
 
     private static void HidePopup(ref Popup? popup)
     {
@@ -371,6 +497,13 @@ public readonly record struct HotkeyRegistration(
     uint Modifiers,
     uint VirtualKey
 );
+
+public enum NativeOverlayKind
+{
+    Popover,
+    Tooltip,
+    Toast
+}
 
 public sealed record HostConfig(
     string Name,

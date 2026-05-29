@@ -46,7 +46,7 @@
     "closeBehavior": "hide-launcher",
     "hotkey": {
       "id": "launcher.toggle",
-      "accelerator": "Command+Shift+K",
+      "accelerator": "Command+Space",
       "action": "window.focus"
     }
   },

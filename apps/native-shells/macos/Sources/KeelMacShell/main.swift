@@ -185,9 +185,9 @@ final class HostBridge: NSObject, WKScriptMessageHandler {
             hideTransientSurfaces()
             window?.orderOut(nil)
         case "toast.show":
-            let title = params["title"] as? String ?? "Keel"
-            let message = params["message"] as? String ?? ""
-            NSLog("[Keel toast] %@ %@", title, message)
+            panels.showToast(params: params, relativeTo: window)
+        case "toast.hide":
+            panels.hideToast(id: params["id"] as? String)
         case "clipboard.writeText":
             if let text = params["text"] as? String {
                 NSPasteboard.general.clearContents()
@@ -220,6 +220,11 @@ final class HostBridge: NSObject, WKScriptMessageHandler {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func hideWindow() {
+        hideTransientSurfaces()
+        window?.orderOut(nil)
+    }
+
     func hideTransientSurfaces() {
         panels.hideAll()
     }
@@ -242,7 +247,7 @@ final class HostBridge: NSObject, WKScriptMessageHandler {
     }
 }
 
-struct HotkeyRegistration {
+struct HotkeyRegistration: Equatable {
     let id: String
     let action: String?
     let key: String
@@ -267,6 +272,9 @@ final class HotkeyRegistry {
             return
         }
 
+        if registrations[id] == registration {
+            return
+        }
         registrations[id] = registration
         installMonitorsIfNeeded()
         NSLog("[Keel hotkey] Registered %@", accelerator)
@@ -275,17 +283,22 @@ final class HotkeyRegistry {
     private func installMonitorsIfNeeded() {
         if localMonitor == nil {
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handle(event: event) == true ? nil : event
+                self?.handle(event: event, allowEscape: true) == true ? nil : event
             }
         }
         if globalMonitor == nil {
             globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                _ = self?.handle(event: event)
+                _ = self?.handle(event: event, allowEscape: false)
             }
         }
     }
 
-    private func handle(event: NSEvent) -> Bool {
+    private func handle(event: NSEvent, allowEscape: Bool) -> Bool {
+        if allowEscape && isEscape(event: event) {
+            bridge?.hideWindow()
+            return true
+        }
+
         for registration in registrations.values where matches(event: event, registration: registration) {
             if registration.action == "window.focus" {
                 bridge?.showWindow()
@@ -300,7 +313,7 @@ final class HotkeyRegistry {
     }
 
     private func matches(event: NSEvent, registration: HotkeyRegistration) -> Bool {
-        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        let key = normalizedEventKey(event)
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         return key == registration.key && flags.isSuperset(of: registration.modifiers)
     }
@@ -309,7 +322,8 @@ final class HotkeyRegistry {
         let parts = accelerator.split(separator: "+").map {
             String($0).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         }
-        guard let key = parts.last, !key.isEmpty else { return nil }
+        guard let rawKey = parts.last, !rawKey.isEmpty else { return nil }
+        let key = normalizedAcceleratorKey(rawKey)
         var modifiers: NSEvent.ModifierFlags = []
 
         for modifier in parts.dropLast() {
@@ -325,25 +339,57 @@ final class HotkeyRegistry {
         return HotkeyRegistration(id: id, action: action, key: key, modifiers: modifiers)
     }
 
+    private func isEscape(event: NSEvent) -> Bool {
+        event.keyCode == 53 || event.charactersIgnoringModifiers == "\u{1b}"
+    }
+
+    private func normalizedEventKey(_ event: NSEvent) -> String {
+        if event.keyCode == 49 { return " " }
+        return event.charactersIgnoringModifiers?.lowercased() ?? ""
+    }
+
+    private func normalizedAcceleratorKey(_ key: String) -> String {
+        switch key {
+        case "space": return " "
+        case "esc", "escape": return "\u{1b}"
+        default: return key
+        }
+    }
+
     private func acceleratorString(_ registration: HotkeyRegistration) -> String {
         var parts: [String] = []
         if registration.modifiers.contains(.command) { parts.append("Command") }
         if registration.modifiers.contains(.shift) { parts.append("Shift") }
         if registration.modifiers.contains(.option) { parts.append("Option") }
         if registration.modifiers.contains(.control) { parts.append("Control") }
-        parts.append(registration.key.uppercased())
+        parts.append(registration.key == " " ? "Space" : registration.key.uppercased())
         return parts.joined(separator: "+")
     }
 }
 
+enum FloatingPanelKind: Equatable {
+    case popover
+    case tooltip
+    case toast
+}
+
 final class FloatingPanelPresenter {
+    private let popoverMinSize = NSSize(width: 160, height: 48)
+    private let popoverMaxSize = NSSize(width: 320, height: 180)
+    private let tooltipMinSize = NSSize(width: 72, height: 34)
+    private let tooltipMaxSize = NSSize(width: 240, height: 72)
+    private let toastMinSize = NSSize(width: 180, height: 48)
+    private let toastMaxSize = NSSize(width: 320, height: 140)
+    private let cornerRadius: CGFloat = 10
+    private let anchorOffset: CGFloat = 10
+    private let toastScreenVerticalRatio: CGFloat = 0.24
     private var panels: [String: NSPanel] = [:]
 
     func showPopover(params: [String: Any], relativeTo window: NSWindow?) {
         let id = params["id"] as? String ?? "popover"
         let title = params["title"] as? String ?? "Keel"
         let message = params["message"] as? String ?? ""
-        showPanel(id: id, title: title, message: message, params: params, relativeTo: window, isTooltip: false)
+        showPanel(id: id, title: title, message: message, params: params, relativeTo: window, kind: .popover)
     }
 
     func hidePopover(id: String?) {
@@ -353,11 +399,22 @@ final class FloatingPanelPresenter {
     func showTooltip(params: [String: Any], relativeTo window: NSWindow?) {
         let id = params["id"] as? String ?? "tooltip"
         let text = params["text"] as? String ?? ""
-        showPanel(id: id, title: text, message: "", params: params, relativeTo: window, isTooltip: true)
+        showPanel(id: id, title: text, message: "", params: params, relativeTo: window, kind: .tooltip)
     }
 
     func hideTooltip(id: String?) {
         hide(id: id ?? "tooltip")
+    }
+
+    func showToast(params: [String: Any], relativeTo window: NSWindow?) {
+        let id = params["id"] as? String ?? "toast"
+        let title = params["title"] as? String ?? "Keel"
+        let message = params["message"] as? String ?? ""
+        showPanel(id: id, title: title, message: message, params: params, relativeTo: window, kind: .toast)
+    }
+
+    func hideToast(id: String?) {
+        hide(id: id ?? "toast")
     }
 
     func hideAll() {
@@ -373,13 +430,21 @@ final class FloatingPanelPresenter {
         message: String,
         params: [String: Any],
         relativeTo window: NSWindow?,
-        isTooltip: Bool
+        kind: FloatingPanelKind
     ) {
         hide(id: id)
-        let width: CGFloat = isTooltip ? 180 : 260
-        let height: CGFloat = isTooltip ? 38 : 86
+        let isTooltip = kind == .tooltip
+        let titleFont = NSFont.systemFont(ofSize: isTooltip ? 12 : 13, weight: .semibold)
+        let messageFont = NSFont.systemFont(ofSize: 12, weight: .regular)
+        let layout = panelLayout(
+            title: title,
+            message: message,
+            titleFont: titleFont,
+            messageFont: messageFont,
+            kind: kind
+        )
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            contentRect: NSRect(origin: .zero, size: layout.size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -387,31 +452,52 @@ final class FloatingPanelPresenter {
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
 
-        let container = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        let container = NSVisualEffectView(frame: NSRect(origin: .zero, size: layout.size))
         container.autoresizingMask = [.width, .height]
-        container.material = .hudWindow
+        container.material = .popover
         container.blendingMode = .behindWindow
         container.state = .active
+        container.wantsLayer = true
+        container.layer?.cornerRadius = cornerRadius
+        container.layer?.masksToBounds = true
 
-        let stack = NSStackView(frame: NSRect(x: 14, y: 10, width: width - 28, height: height - 20))
+        let stack = NSStackView(frame: NSRect(
+            x: layout.horizontalInset,
+            y: layout.verticalInset,
+            width: layout.contentWidth,
+            height: layout.size.height - (layout.verticalInset * 2)
+        ))
         stack.orientation = .vertical
-        stack.spacing = 3
+        stack.spacing = layout.spacing
         stack.alignment = .leading
-        stack.addArrangedSubview(label(title, font: .systemFont(ofSize: isTooltip ? 12 : 13, weight: .semibold)))
+        stack.addArrangedSubview(label(
+            title,
+            font: titleFont,
+            color: .labelColor,
+            maxWidth: layout.contentWidth,
+            lineLimit: 1
+        ))
         if !message.isEmpty {
-            stack.addArrangedSubview(label(message, font: .systemFont(ofSize: 12, weight: .regular)))
+            stack.addArrangedSubview(label(
+                message,
+                font: messageFont,
+                color: .secondaryLabelColor,
+                maxWidth: layout.contentWidth,
+                lineLimit: 3
+            ))
         }
         container.addSubview(stack)
         panel.contentView = container
 
-        panel.setFrameOrigin(origin(params: params, relativeTo: window, panelSize: panel.frame.size))
+        panel.setFrameOrigin(origin(params: params, relativeTo: window, panelSize: panel.frame.size, kind: kind))
         panel.orderFrontRegardless()
         panels[id] = panel
 
-        if isTooltip {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        if kind == .tooltip || kind == .toast {
+            let duration = kind == .tooltip ? 2.0 : 3.2
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
                 self?.hide(id: id)
             }
         }
@@ -422,24 +508,108 @@ final class FloatingPanelPresenter {
         panels[id] = nil
     }
 
-    private func label(_ text: String, font: NSFont) -> NSTextField {
+    private func label(_ text: String, font: NSFont, color: NSColor, maxWidth: CGFloat, lineLimit: Int) -> NSTextField {
         let field = NSTextField(labelWithString: text)
         field.font = font
-        field.textColor = .labelColor
-        field.lineBreakMode = .byTruncatingTail
+        field.textColor = color
+        field.maximumNumberOfLines = lineLimit
+        field.lineBreakMode = lineLimit == 1 ? .byTruncatingTail : .byWordWrapping
+        field.preferredMaxLayoutWidth = maxWidth
+        field.frame = NSRect(x: 0, y: 0, width: maxWidth, height: field.intrinsicContentSize.height)
         return field
     }
 
-    private func origin(params: [String: Any], relativeTo window: NSWindow?, panelSize: NSSize) -> NSPoint {
+    private func panelLayout(
+        title: String,
+        message: String,
+        titleFont: NSFont,
+        messageFont: NSFont,
+        kind: FloatingPanelKind
+    ) -> (size: NSSize, horizontalInset: CGFloat, verticalInset: CGFloat, contentWidth: CGFloat, spacing: CGFloat) {
+        let minSize = minSize(for: kind)
+        let maxSize = maxSize(for: kind)
+        let horizontalInset: CGFloat = kind == .tooltip ? 12 : 14
+        let verticalInset: CGFloat = kind == .tooltip ? 9 : 12
+        let spacing: CGFloat = message.isEmpty ? 0 : 4
+        let maxContentWidth = maxSize.width - (horizontalInset * 2)
+        let minContentWidth = minSize.width - (horizontalInset * 2)
+        let naturalTitleWidth = singleLineSize(title, font: titleFont).width
+        let naturalMessageWidth = message.isEmpty ? 0 : singleLineSize(message, font: messageFont).width
+        let contentWidth = clamp(max(naturalTitleWidth, naturalMessageWidth, minContentWidth), minContentWidth, maxContentWidth)
+        let titleHeight = lineHeight(titleFont)
+        let messageHeight = message.isEmpty
+            ? 0
+            : min(multilineHeight(message, font: messageFont, width: contentWidth), lineHeight(messageFont) * 3)
+        let contentHeight = titleHeight + spacing + messageHeight
+        let width = clamp(contentWidth + (horizontalInset * 2), minSize.width, maxSize.width)
+        let height = clamp(contentHeight + (verticalInset * 2), minSize.height, maxSize.height)
+        return (NSSize(width: ceil(width), height: ceil(height)), horizontalInset, verticalInset, contentWidth, spacing)
+    }
+
+    private func minSize(for kind: FloatingPanelKind) -> NSSize {
+        switch kind {
+        case .popover:
+            return popoverMinSize
+        case .tooltip:
+            return tooltipMinSize
+        case .toast:
+            return toastMinSize
+        }
+    }
+
+    private func maxSize(for kind: FloatingPanelKind) -> NSSize {
+        switch kind {
+        case .popover:
+            return popoverMaxSize
+        case .tooltip:
+            return tooltipMaxSize
+        case .toast:
+            return toastMaxSize
+        }
+    }
+
+    private func singleLineSize(_ text: String, font: NSFont) -> NSSize {
+        NSAttributedString(string: text, attributes: [.font: font]).size()
+    }
+
+    private func multilineHeight(_ text: String, font: NSFont, width: CGFloat) -> CGFloat {
+        let rect = (text as NSString).boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
+        return ceil(rect.height)
+    }
+
+    private func lineHeight(_ font: NSFont) -> CGFloat {
+        ceil(font.ascender - font.descender + font.leading)
+    }
+
+    private func clamp(_ value: CGFloat, _ minValue: CGFloat, _ maxValue: CGFloat) -> CGFloat {
+        min(max(value, minValue), maxValue)
+    }
+
+    private func origin(params: [String: Any], relativeTo window: NSWindow?, panelSize: NSSize, kind: FloatingPanelKind) -> NSPoint {
+        if kind == .toast {
+            let screenFrame = (window?.screen ?? NSScreen.main)?.visibleFrame
+                ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            let x = screenFrame.midX - (panelSize.width / 2)
+            let y = screenFrame.minY + (screenFrame.height * toastScreenVerticalRatio)
+            return NSPoint(
+                x: clamp(x, screenFrame.minX, screenFrame.maxX - panelSize.width),
+                y: clamp(y, screenFrame.minY, screenFrame.maxY - panelSize.height)
+            )
+        }
+
         guard let anchor = params["anchorRect"] as? [String: Any],
-              let window = window else {
+              let window else {
             return NSPoint(x: 120, y: 120)
         }
 
         let x = anchor["x"] as? CGFloat ?? 0
         let y = anchor["y"] as? CGFloat ?? 0
         let height = anchor["height"] as? CGFloat ?? 0
-        let localPoint = NSPoint(x: x, y: y + height + 8)
+        let localPoint = NSPoint(x: x, y: y + height + anchorOffset)
         let screenPoint = window.convertPoint(toScreen: localPoint)
         return NSPoint(x: screenPoint.x, y: screenPoint.y - panelSize.height)
     }

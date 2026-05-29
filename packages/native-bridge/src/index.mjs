@@ -6,6 +6,7 @@ export const nativeBridgeMethods = {
   WINDOW_HIDE: "window.hide",
   WINDOW_FOCUS: "window.focus",
   TOAST_SHOW: "toast.show",
+  TOAST_HIDE: "toast.hide",
   CLIPBOARD_READ_TEXT: "clipboard.readText",
   CLIPBOARD_WRITE_TEXT: "clipboard.writeText",
   GLOBAL_HOTKEY_REGISTER: "globalHotkey.register",
@@ -41,6 +42,9 @@ export function createNativeBridge({ transport, idFactory = createMessageId } = 
     },
     showToast(params) {
       return invoke(nativeBridgeMethods.TOAST_SHOW, params);
+    },
+    hideToast(params = {}) {
+      return invoke(nativeBridgeMethods.TOAST_HIDE, params);
     },
     writeClipboardText(text) {
       return invoke(nativeBridgeMethods.CLIPBOARD_WRITE_TEXT, { text });

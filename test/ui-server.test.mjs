@@ -17,7 +17,7 @@ test("ui overview includes extension, protocol, host, and Rust data", async () =
   assert.ok(overview.extensions.some((extension) => extension.id === "hello-world-rust"));
   assert.ok(overview.optionalExtensions.some((extension) => extension.id === "keel-file-indexer"));
   assert.equal(overview.webView.windows.length, 2);
-  assert.equal(overview.webView.lifecycle.hotkey.accelerator, "Command+Shift+K");
+  assert.equal(overview.webView.lifecycle.hotkey.accelerator, "Command+Space");
   assert.equal(overview.backend.service, "KeelBackendService");
   assert.ok(overview.backend.features.includes("Capability-based routing"));
   assert.ok(overview.protocol.methods.some((method) => method.name === "search.query"));
@@ -35,6 +35,8 @@ test("ui dashboard shell and search helper are wired", async () => {
   assert.match(app, /showPopover/);
   assert.match(app, /Popover/);
   assert.match(app, /Tooltip/);
+  assert.match(app, /Toast/);
+  assert.match(app, /showNativeToast/);
   assert.match(app, /hideNativeOverlays/);
   assert.match(app, /registerGlobalHotkey/);
   assert.match(css, /user-select: none/);

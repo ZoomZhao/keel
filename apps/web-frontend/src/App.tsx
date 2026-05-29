@@ -1,5 +1,6 @@
 import {
   Command,
+  Bell,
   Info,
   Keyboard,
   Layers,
@@ -111,7 +112,7 @@ export function App() {
     void bridge.ready({ surface: "launcher" });
     void bridge.registerGlobalHotkey({
       id: "launcher.toggle",
-      accelerator: "Command+Shift+K",
+      accelerator: "Command+Space",
       action: "window.focus"
     }).then((result: NativeResult) => {
       setNativeStatus(result.ok ? "hotkey ready" : result.reason ?? "native unavailable");
@@ -177,19 +178,30 @@ export function App() {
     setNativeProbe("tooltip pending");
     const result = await bridge.showTooltip({
       id: "keel.hotkey",
-      text: "Command+Shift+K",
+      text: "Command+Space",
       anchorRect: toAnchorRect(rect)
     });
     recordNativeProbe("tooltip", result);
   }
 
+  async function showNativeToast() {
+    setNativeProbe("toast pending");
+    const result = await bridge.showToast({
+      id: "keel.demo.toast",
+      title: "Keel is ready",
+      message: `${backendState === "warm" ? "Backend is warm" : "Backend is ready"} / ${overview.extensions.length} extensions`
+    });
+    recordNativeProbe("toast", result);
+  }
+
   async function hideNativeOverlays() {
     setNativeProbe("hide pending");
-    const [popover, tooltip] = await Promise.all([
+    const [popover, tooltip, toast] = await Promise.all([
       bridge.hidePopover({ id: "keel.status" }),
-      bridge.hideTooltip({ id: "keel.hotkey" })
+      bridge.hideTooltip({ id: "keel.hotkey" }),
+      bridge.hideToast({ id: "keel.demo.toast" })
     ]);
-    recordNativeProbe("hide", popover.ok === false ? popover : tooltip);
+    recordNativeProbe("hide", popover.ok === false ? popover : tooltip.ok === false ? tooltip : toast);
   }
 
   function recordNativeProbe(name: string, result: NativeResult) {
@@ -257,6 +269,10 @@ export function App() {
             <Button className="h-8 px-2" type="button" variant="outline" onClick={showNativeTooltip}>
               <Keyboard className="h-4 w-4" />
               Tooltip
+            </Button>
+            <Button className="h-8 px-2" type="button" variant="outline" onClick={showNativeToast}>
+              <Bell className="h-4 w-4" />
+              Toast
             </Button>
             <Button aria-label="Hide native overlays" className="h-8 w-8" size="icon" type="button" variant="ghost" onClick={hideNativeOverlays}>
               <RefreshCcw className="h-4 w-4" />
