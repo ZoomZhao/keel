@@ -18,6 +18,8 @@ test("macOS shell reads the shared WebView host config", async () => {
   assert.match(source, /tooltip\.show/);
   assert.match(source, /prewarmBeforeShow/);
   assert.match(source, /windowShouldClose/);
+  assert.match(source, /hideTransientSurfaces/);
+  assert.match(source, /hideAll/);
   assert.match(source, /config\.frontend\.devUrl/);
 });
 
@@ -38,5 +40,6 @@ test("Windows shell reads the shared WebView host config", async () => {
   assert.match(source, /popover\.show/);
   assert.match(source, /tooltip\.show/);
   assert.match(source, /PrewarmBeforeShow/);
+  assert.match(source, /HideNativeOverlays/);
   assert.match(source, /CoreWebView2\.Navigate/);
 });

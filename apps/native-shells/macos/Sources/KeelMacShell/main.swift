@@ -90,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        bridge.hideTransientSurfaces()
         sender.orderOut(nil)
         return false
     }
@@ -181,6 +182,7 @@ final class HostBridge: NSObject, WKScriptMessageHandler {
         case "host.ready", "window.show", "window.focus":
             showWindow()
         case "window.hide":
+            hideTransientSurfaces()
             window?.orderOut(nil)
         case "toast.show":
             let title = params["title"] as? String ?? "Keel"
@@ -216,6 +218,10 @@ final class HostBridge: NSObject, WKScriptMessageHandler {
         window?.alphaValue = 1
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func hideTransientSurfaces() {
+        panels.hideAll()
     }
 
     func emitNativeEvent(method: String, payload: [String: Any]) {
@@ -352,6 +358,13 @@ final class FloatingPanelPresenter {
 
     func hideTooltip(id: String?) {
         hide(id: id ?? "tooltip")
+    }
+
+    func hideAll() {
+        for panel in panels.values {
+            panel.orderOut(nil)
+        }
+        panels.removeAll()
     }
 
     private func showPanel(

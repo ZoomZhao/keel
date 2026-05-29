@@ -33,6 +33,9 @@ test("ui dashboard shell and search helper are wired", async () => {
   assert.match(html, /<title>Keel<\/title>/);
   assert.match(app, /keel-topbar/);
   assert.match(app, /showPopover/);
+  assert.match(app, /Popover/);
+  assert.match(app, /Tooltip/);
+  assert.match(app, /hideNativeOverlays/);
   assert.match(app, /registerGlobalHotkey/);
   assert.match(css, /user-select: none/);
   assert.match(css, /--keel-window-control-inset-left/);

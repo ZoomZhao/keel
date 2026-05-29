@@ -75,10 +75,12 @@ public partial class MainWindow : Window
         if (_launcher?.CloseBehavior == "hide")
         {
             e.Cancel = true;
+            HideNativeOverlays();
             Hide();
             return;
         }
 
+        HideNativeOverlays();
         base.OnClosing(e);
     }
 
@@ -115,6 +117,7 @@ public partial class MainWindow : Window
                 ShowLauncher();
                 break;
             case "window.hide":
+                HideNativeOverlays();
                 Hide();
                 break;
             case "toast.show":
@@ -156,6 +159,12 @@ public partial class MainWindow : Window
         Show();
         Activate();
         Topmost = _launcher?.AlwaysOnTop ?? Topmost;
+    }
+
+    private void HideNativeOverlays()
+    {
+        HidePopup(ref _popover);
+        HidePopup(ref _tooltip);
     }
 
     private void RegisterGlobalHotkey(JsonElement parameters)

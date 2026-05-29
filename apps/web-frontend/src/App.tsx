@@ -85,6 +85,7 @@ type SearchResponse = {
 };
 
 type Status = "loading" | "ready" | "running" | "failed";
+type NativeResult = { ok?: boolean; reason?: string };
 
 const emptyOverview: Overview = {
   project: { name: "Keel", version: "0.1.0", license: "Apache-2.0" },
@@ -102,6 +103,7 @@ export function App() {
   const [results, setResults] = useState<SearchItem[]>([]);
   const [status, setStatus] = useState<Status>("loading");
   const [nativeStatus, setNativeStatus] = useState("web fallback");
+  const [nativeProbe, setNativeProbe] = useState("bridge idle");
 
   useEffect(() => {
     void loadOverview();
@@ -111,7 +113,7 @@ export function App() {
       id: "launcher.toggle",
       accelerator: "Command+Shift+K",
       action: "window.focus"
-    }).then((result: { ok?: boolean; reason?: string }) => {
+    }).then((result: NativeResult) => {
       setNativeStatus(result.ok ? "hotkey ready" : result.reason ?? "native unavailable");
     });
 
@@ -160,21 +162,38 @@ export function App() {
 
   async function showNativePopover(event: MouseEvent<HTMLButtonElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    await bridge.showPopover({
+    setNativeProbe("popover pending");
+    const result = await bridge.showPopover({
       id: "keel.status",
       title: "Keel",
       message: `${overview.extensions.length} extensions, ${overview.protocol.methods.length} protocol methods`,
       anchorRect: toAnchorRect(rect)
     });
+    recordNativeProbe("popover", result);
   }
 
   async function showNativeTooltip(event: MouseEvent<HTMLButtonElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    await bridge.showTooltip({
+    setNativeProbe("tooltip pending");
+    const result = await bridge.showTooltip({
       id: "keel.hotkey",
       text: "Command+Shift+K",
       anchorRect: toAnchorRect(rect)
     });
+    recordNativeProbe("tooltip", result);
+  }
+
+  async function hideNativeOverlays() {
+    setNativeProbe("hide pending");
+    const [popover, tooltip] = await Promise.all([
+      bridge.hidePopover({ id: "keel.status" }),
+      bridge.hideTooltip({ id: "keel.hotkey" })
+    ]);
+    recordNativeProbe("hide", popover.ok === false ? popover : tooltip);
+  }
+
+  function recordNativeProbe(name: string, result: NativeResult) {
+    setNativeProbe(result.ok === false ? `${name}: ${result.reason ?? "unavailable"}` : `${name}: sent`);
   }
 
   return (
@@ -228,13 +247,19 @@ export function App() {
             <StatusPill icon={Server} label={`backend ${backendState}`} />
             <StatusPill icon={Keyboard} label={nativeStatus} />
             <StatusPill icon={Layers} label={optionalIndexer ? "file indexer optional" : "extensions only"} />
+            <StatusPill icon={Info} label={nativeProbe} />
           </div>
-          <div className="flex items-center justify-end gap-1.5">
-            <Button aria-label="Show native tooltip" size="icon" type="button" variant="ghost" onClick={showNativeTooltip}>
-              <Keyboard className="h-4 w-4" />
-            </Button>
-            <Button aria-label="Show native popover" size="icon" type="button" variant="ghost" onClick={showNativePopover}>
+          <div className="flex items-center justify-end gap-1.5 max-sm:justify-start">
+            <Button className="h-8 px-2" type="button" variant="outline" onClick={showNativePopover}>
               <Info className="h-4 w-4" />
+              Popover
+            </Button>
+            <Button className="h-8 px-2" type="button" variant="outline" onClick={showNativeTooltip}>
+              <Keyboard className="h-4 w-4" />
+              Tooltip
+            </Button>
+            <Button aria-label="Hide native overlays" className="h-8 w-8" size="icon" type="button" variant="ghost" onClick={hideNativeOverlays}>
+              <RefreshCcw className="h-4 w-4" />
             </Button>
             <Badge variant={status === "failed" ? "warning" : status === "ready" ? "success" : "secondary"}>
               {statusLabel(status)}
